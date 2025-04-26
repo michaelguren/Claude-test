@@ -1,0 +1,30 @@
+# Node modules (if you ever have scripts or dev tooling)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+
+# Local environment files
+.env
+*.env.local
+*.env.*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# AWS SAM or CloudFormation build folders (optional if you use them)
+.aws-sam/
+.cfn-cache/
+
+# Python cache (if you have Python scripts)
+__pycache__/
+*.pyc

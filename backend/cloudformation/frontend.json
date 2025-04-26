@@ -1,0 +1,316 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "Minimalist TODO Application - Frontend Infrastructure",
+	"Parameters": {
+		"Environment": {
+			"Description": "Deployment environment",
+			"Type": "String",
+			"Default": "dev",
+			"AllowedValues": [
+				"dev",
+				"prod"
+			]
+		}
+	},
+	"Resources": {
+		"TodoAppBucket": {
+			"Type": "AWS::S3::Bucket",
+			"Properties": {
+				"BucketName": {
+					"Fn::Join": [
+						"-",
+						[
+							"minimalist-todo-app",
+							{
+								"Ref": "Environment"
+							},
+							{
+								"Ref": "AWS::AccountId"
+							}
+						]
+					]
+				},
+				"WebsiteConfiguration": {
+					"IndexDocument": "index.html",
+					"ErrorDocument": "index.html"
+				},
+				"PublicAccessBlockConfiguration": {
+					"BlockPublicAcls": true,
+					"BlockPublicPolicy": true,
+					"IgnorePublicAcls": true,
+					"RestrictPublicBuckets": true
+				},
+				"VersioningConfiguration": {
+					"Status": "Enabled"
+				},
+				"Tags": [
+					{
+						"Key": "Environment",
+						"Value": {
+							"Ref": "Environment"
+						}
+					},
+					{
+						"Key": "Application",
+						"Value": "MinimalistTodoApp"
+					}
+				]
+			}
+		},
+		"TodoAppOAC": {
+			"Type": "AWS::CloudFront::OriginAccessControl",
+			"Properties": {
+				"OriginAccessControlConfig": {
+					"Name": {
+						"Fn::Join": [
+							"-",
+							[
+								"MinimalistTodoApp-S3-OAC",
+								{
+									"Ref": "Environment"
+								}
+							]
+						]
+					},
+					"OriginAccessControlOriginType": "s3",
+					"SigningBehavior": "always",
+					"SigningProtocol": "sigv4"
+				}
+			}
+		},
+		"TodoAppCloudFront": {
+			"Type": "AWS::CloudFront::Distribution",
+			"Properties": {
+				"DistributionConfig": {
+					"Origins": [
+						{
+							"DomainName": {
+								"Fn::GetAtt": [
+									"TodoAppBucket",
+									"RegionalDomainName"
+								]
+							},
+							"Id": "S3Origin",
+							"S3OriginConfig": {
+								"OriginAccessIdentity": ""
+							},
+							"OriginAccessControlId": {
+								"Fn::GetAtt": [
+									"TodoAppOAC",
+									"Id"
+								]
+							}
+						}
+					],
+					"Enabled": true,
+					"DefaultRootObject": "index.html",
+					"DefaultCacheBehavior": {
+						"TargetOriginId": "S3Origin",
+						"ViewerProtocolPolicy": "redirect-to-https",
+						"AllowedMethods": [
+							"GET",
+							"HEAD",
+							"OPTIONS"
+						],
+						"CachedMethods": [
+							"GET",
+							"HEAD",
+							"OPTIONS"
+						],
+						"ForwardedValues": {
+							"QueryString": false,
+							"Cookies": {
+								"Forward": "none"
+							}
+						},
+						"MinTTL": 0,
+						"DefaultTTL": 86400,
+						"MaxTTL": 31536000,
+						"Compress": true
+					},
+					"PriceClass": "PriceClass_100",
+					"ViewerCertificate": {
+						"CloudFrontDefaultCertificate": true
+					},
+					"CustomErrorResponses": [
+						{
+							"ErrorCode": 404,
+							"ResponseCode": 200,
+							"ResponsePagePath": "/index.html"
+						},
+						{
+							"ErrorCode": 403,
+							"ResponseCode": 200,
+							"ResponsePagePath": "/index.html"
+						}
+					],
+					"HttpVersion": "http2"
+				},
+				"Tags": [
+					{
+						"Key": "Environment",
+						"Value": {
+							"Ref": "Environment"
+						}
+					},
+					{
+						"Key": "Application",
+						"Value": "MinimalistTodoApp"
+					}
+				]
+			}
+		},
+		"TodoAppBucketPolicy": {
+			"Type": "AWS::S3::BucketPolicy",
+			"Properties": {
+				"Bucket": {
+					"Ref": "TodoAppBucket"
+				},
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Action": "s3:GetObject",
+							"Effect": "Allow",
+							"Resource": {
+								"Fn::Join": [
+									"",
+									[
+										"arn:aws:s3:::",
+										{
+											"Ref": "TodoAppBucket"
+										},
+										"/*"
+									]
+								]
+							},
+							"Principal": {
+								"Service": "cloudfront.amazonaws.com"
+							},
+							"Condition": {
+								"StringEquals": {
+									"AWS:SourceArn": {
+										"Fn::Join": [
+											"",
+											[
+												"arn:aws:cloudfront::",
+												{
+													"Ref": "AWS::AccountId"
+												},
+												":distribution/",
+												{
+													"Ref": "TodoAppCloudFront"
+												}
+											]
+										]
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		}
+	},
+	"Outputs": {
+		"S3BucketName": {
+			"Description": "S3 bucket name for static website files",
+			"Value": {
+				"Ref": "TodoAppBucket"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": [
+						"-",
+						[
+							{
+								"Ref": "AWS::StackName"
+							},
+							"BucketName"
+						]
+					]
+				}
+			}
+		},
+		"S3BucketWebsiteURL": {
+			"Description": "S3 bucket website URL (only accessible through CloudFront)",
+			"Value": {
+				"Fn::GetAtt": [
+					"TodoAppBucket",
+					"WebsiteURL"
+				]
+			}
+		},
+		"CloudFrontDistributionId": {
+			"Description": "CloudFront distribution ID",
+			"Value": {
+				"Ref": "TodoAppCloudFront"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": [
+						"-",
+						[
+							{
+								"Ref": "AWS::StackName"
+							},
+							"DistributionId"
+						]
+					]
+				}
+			}
+		},
+		"CloudFrontDomainName": {
+			"Description": "CloudFront distribution domain name",
+			"Value": {
+				"Fn::GetAtt": [
+					"TodoAppCloudFront",
+					"DomainName"
+				]
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": [
+						"-",
+						[
+							{
+								"Ref": "AWS::StackName"
+							},
+							"DomainName"
+						]
+					]
+				}
+			}
+		},
+		"ApplicationURL": {
+			"Description": "URL to access the application",
+			"Value": {
+				"Fn::Join": [
+					"",
+					[
+						"https://",
+						{
+							"Fn::GetAtt": [
+								"TodoAppCloudFront",
+								"DomainName"
+							]
+						}
+					]
+				]
+			},
+			"Export": {
+				"Name": {
+					"Fn::Join": [
+						"-",
+						[
+							{
+								"Ref": "AWS::StackName"
+							},
+							"URL"
+						]
+					]
+				}
+			}
+		}
+	}
+}
