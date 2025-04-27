@@ -155,66 +155,108 @@ if ! aws cloudformation deploy \
   exit 1
 fi
 
-# Get outputs from CloudFormation
+# Get outputs from CloudFormation using a different approach
 echo "Getting stack outputs..."
-if ! CF_OUTPUTS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" --query "Stacks[0].Outputs" --output json); then
-  echo "ERROR: Failed to get CloudFormation outputs. Frontend deployment may be incomplete."
+
+# Create a temporary file to store outputs
+TEMP_FILE=$(mktemp)
+
+# Get the stack outputs and store them in the temporary file
+if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" --output json > "$TEMP_FILE"; then
+  echo "ERROR: Failed to get CloudFormation stack information."
+  rm -f "$TEMP_FILE"
   exit 1
 fi
 
-# Update config file with outputs
-node -e "
-  const fs = require('fs');
-  const cfg = require('./$CONFIG_FILE');
-  const outputs = JSON.parse('$CF_OUTPUTS');
-  
-  // Update stack info
-  cfg.resources.stack.name = '$STACK_NAME';
-  cfg.resources.stack.updated = '$(date -u +"%Y-%m-%dT%H:%M:%SZ")';
-  if (!cfg.resources.stack.created) {
-    cfg.resources.stack.created = '$(date -u +"%Y-%m-%dT%H:%M:%SZ")';
-  }
-  
-  // Update frontend resources
-  outputs.forEach(output => {
-    if (output.OutputKey === 'S3BucketName') {
-      cfg.resources.frontend.bucketName = output.OutputValue;
-    } else if (output.OutputKey === 'CloudFrontDistributionId') {
-      cfg.resources.frontend.cloudfrontId = output.OutputValue;
-    } else if (output.OutputKey === 'CloudFrontDomainName') {
-      cfg.resources.frontend.cloudfrontDomain = output.OutputValue;
-    }
-  });
-  
-  // Add deployment record
-  cfg.deployments.unshift({
-    timestamp: '$(date -u +"%Y-%m-%dT%H:%M:%SZ")', 
-    user: '$(whoami)', 
-    success: true,
-    environment: '$ENVIRONMENT'
-  });
-  
-  fs.writeFileSync('$CONFIG_FILE', 
-    'const projectConfig = ' + JSON.stringify(cfg, null, 2) + 
-    ';\n\n// In browser environments, export to window\n' +
-    'if (typeof window !== \\'undefined\\') {\n' +
-    '  window.projectConfig = projectConfig;\n' +
-    '}\n\n' +
-    '// In Node.js environments, export as module\n' +
-    'if (typeof module !== \\'undefined\\' && module.exports) {\n' +
-    '  module.exports = projectConfig;\n' +
-    '}');
-"
+# Extract the needed values using jq if available, or fallback to grep
+if command -v jq &> /dev/null; then
+  S3_BUCKET=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="S3BucketName") | .OutputValue' "$TEMP_FILE")
+  CLOUDFRONT_ID=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="CloudFrontDistributionId") | .OutputValue' "$TEMP_FILE")
+  CLOUDFRONT_DOMAIN=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="CloudFrontDomainName") | .OutputValue' "$TEMP_FILE")
+else
+  # Fallback to grep and basic text processing
+  S3_BUCKET=$(grep -o '"OutputKey":"S3BucketName","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
+  CLOUDFRONT_ID=$(grep -o '"OutputKey":"CloudFrontDistributionId","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
+  CLOUDFRONT_DOMAIN=$(grep -o '"OutputKey":"CloudFrontDomainName","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
+fi
 
-# Extract S3 bucket name directly for deployment
-S3_BUCKET=$(node -e "const cfg = require('./$CONFIG_FILE'); console.log(cfg.resources.frontend.bucketName);")
+# Clean up the temporary file
+rm -f "$TEMP_FILE"
 
+# Check if we got the values
 if [ -z "$S3_BUCKET" ]; then
-  echo "ERROR: Could not determine frontend S3 bucket name. Frontend deployment aborted."
+  echo "ERROR: Could not extract S3 bucket name from CloudFormation outputs."
   exit 1
 fi
 
-APP_URL=$(node -e "const cfg = require('./$CONFIG_FILE'); console.log('https://' + cfg.resources.frontend.cloudfrontDomain);")
+# Display the extracted values
+echo "CloudFormation outputs:"
+echo "  S3 Bucket: $S3_BUCKET"
+echo "  CloudFront ID: $CLOUDFRONT_ID"
+echo "  CloudFront Domain: $CLOUDFRONT_DOMAIN"
+
+# Create a separate file for updating the config to avoid shell escaping issues
+cat > update_config.js << EOF
+const fs = require('fs');
+let cfg;
+try {
+  cfg = require('./${CONFIG_FILE}');
+} catch(e) {
+  cfg = {
+    application: { name: '${APP_NAME}', description: 'Minimalist TODO Application with zero dependencies' },
+    aws: { templateBucket: '${TEMPLATE_BUCKET}', accountId: '${AWS_ACCOUNT_ID}' },
+    resources: { 
+      stack: { name: null, created: null, updated: null }, 
+      frontend: { bucketName: null, cloudfrontId: null, cloudfrontDomain: null } 
+    },
+    deployments: []
+  };
+}
+
+// Update stack info
+cfg.resources.stack.name = '${STACK_NAME}';
+cfg.resources.stack.updated = '$(date -u +"%Y-%m-%dT%H:%M:%SZ")';
+if (!cfg.resources.stack.created) {
+  cfg.resources.stack.created = '$(date -u +"%Y-%m-%dT%H:%M:%SZ")';
+}
+
+// Update frontend resources
+cfg.resources.frontend.bucketName = '${S3_BUCKET}';
+cfg.resources.frontend.cloudfrontId = '${CLOUDFRONT_ID}';
+cfg.resources.frontend.cloudfrontDomain = '${CLOUDFRONT_DOMAIN}';
+
+// Add deployment record
+cfg.deployments.unshift({
+  timestamp: '$(date -u +"%Y-%m-%dT%H:%M:%SZ")', 
+  user: '$(whoami)', 
+  success: true,
+  environment: '${ENVIRONMENT}'
+});
+
+// Write the updated configuration back to the file
+fs.writeFileSync('${CONFIG_FILE}', 
+  'const projectConfig = ' + JSON.stringify(cfg, null, 2) + 
+  ';\n\n// In browser environments, export to window\n' +
+  'if (typeof window !== \"undefined\") {\n' +
+  '  window.projectConfig = projectConfig;\n' +
+  '}\n\n' +
+  '// In Node.js environments, export as module\n' +
+  'if (typeof module !== \"undefined\" && module.exports) {\n' +
+  '  module.exports = projectConfig;\n' +
+  '}');
+
+console.log('Configuration updated successfully.');
+EOF
+
+# Update the config file
+if ! node update_config.js; then
+  echo "ERROR: Failed to update configuration file."
+  rm -f update_config.js
+  exit 1
+fi
+
+# Clean up the temporary script
+rm -f update_config.js
 
 # Upload frontend files
 echo "Uploading frontend files to S3 bucket: $S3_BUCKET"
@@ -227,6 +269,6 @@ echo "==============================================="
 echo "Deployment complete!"
 echo "Environment: $ENVIRONMENT"
 echo "Stack Name: $STACK_NAME"
-echo "Application URL: $APP_URL"
+echo "Application URL: https://$CLOUDFRONT_DOMAIN"
 echo "Configuration saved to: $CONFIG_FILE"
 echo "==============================================="
