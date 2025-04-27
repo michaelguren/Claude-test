@@ -105,8 +105,9 @@ function parseJwt(token) {
 function signIn() {
   const config = window.APP_CONFIG || {};
   
-  // Always use mock authentication for local environment
-  if (config.environment === 'local' || config.useMockApi) {
+  // Use mock authentication for local environment only
+  // For AWS deployed app (environment = 'aws' or anything other than 'local'), use real Cognito auth
+  if (config.environment === 'local') {
     console.log("Using mock authentication for local development");
     
     // Create a mock user and token
@@ -133,10 +134,11 @@ function signIn() {
   // For AWS hosted environments, use Cognito
   const cognitoUrl = config.cognitoHostedUiUrl;
   if (!cognitoUrl) {
-    console.error("Cognito Hosted UI URL not configured for non-local environment");
+    console.error("Cognito Hosted UI URL not configured for AWS environment");
     return;
   }
 
+  console.log("Using real Cognito authentication on AWS");
   // Redirect to Cognito hosted UI
   window.location.href = cognitoUrl;
 }

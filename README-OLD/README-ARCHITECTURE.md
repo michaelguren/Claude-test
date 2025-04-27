@@ -166,6 +166,23 @@ This architecture is fundamentally enabled by AI assistance. While traditional d
 
 The AI doesn't just help write code—it fundamentally changes what's possible with a minimalist approach. This is not about avoiding modern capabilities, but about implementing them in the most direct, dependency-free way possible.
 
+# Working with Claude - Keep It Simple
+
+When assisting with this project, Claude should:
+
+1. Prioritize simplicity over complexity
+2. Prefer straightforward, proven solutions over clever or novel approaches
+3. Focus on solving the general problem rather than specific edge cases
+4. Write code that is clear and maintainable rather than optimizing prematurely
+5. Ask questions if a task seems overly complex rather than implementing an overengineered solution
+6. Break complex tasks into smaller, manageable pieces when necessary
+7. Use standard tools and approaches when available rather than inventing new ones
+8. Remember that a working simple solution is better than a perfect complex one
+9. Consider how solutions will be maintained in the future
+10. Avoid gold-plating solutions with features that weren't requested
+
+When in doubt, Claude should lean toward practicality and simplicity, focusing on what will be most effective for the specific needs of the minimalist TODO application.
+
 ## Business Objectives
 
 This architecture serves specific business goals:

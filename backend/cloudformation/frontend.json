@@ -16,20 +16,6 @@
 		"TodoAppBucket": {
 			"Type": "AWS::S3::Bucket",
 			"Properties": {
-				"BucketName": {
-					"Fn::Join": [
-						"-",
-						[
-							"minimalist-todo-app",
-							{
-								"Ref": "Environment"
-							},
-							{
-								"Ref": "AWS::AccountId"
-							}
-						]
-					]
-				},
 				"WebsiteConfiguration": {
 					"IndexDocument": "index.html",
 					"ErrorDocument": "index.html"

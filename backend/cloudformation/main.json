@@ -13,107 +13,30 @@
       "Default": "minimalist-todo",
       "Description": "Application name used for resource naming"
     },
-    "LocalCallbackUrl": {
+    "S3Bucket": {
       "Type": "String",
-      "Description": "Local callback URL after successful authentication",
-      "Default": "http://localhost:8080/callback.html"
-    },
-    "LogoutUrl": {
-      "Type": "String",
-      "Description": "Logout URL",
-      "Default": "http://localhost:8080/index.html"
+      "Description": "S3 bucket containing CloudFormation templates"
     }
   },
   "Resources": {
     "FrontendStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/bucket-name/frontend.json",
+        "TemplateURL": {
+          "Fn::Sub": "https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/frontend.json"
+        },
         "Parameters": {
-          "Environment": { "Ref": "Environment" },
-          "AppName": { "Ref": "AppName" }
-        }
-      }
-    },
-    "AuthStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/bucket-name/auth.json",
-        "Parameters": {
-          "Environment": { "Ref": "Environment" },
-          "AppName": { "Ref": "AppName" },
-          "LocalCallbackUrl": { "Ref": "LocalCallbackUrl" },
-          "CloudFrontCallbackUrl": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDomain"]
-          },
-          "LogoutUrl": { "Ref": "LogoutUrl" }
-        }
-      },
-      "DependsOn": ["FrontendStack"]
-    },
-    "DataStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/bucket-name/data.json",
-        "Parameters": {
-          "Environment": { "Ref": "Environment" },
-          "AppName": { "Ref": "AppName" },
-          "UserPoolId": {
-            "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolId"]
-          }
-        }
-      },
-      "DependsOn": ["AuthStack"]
-    },
-    "ApiStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "DependsOn": ["DataStack", "AuthStack"],
-      "Properties": {
-        "TemplateURL": "https://s3.amazonaws.com/bucket-name/api.json",
-        "Parameters": {
-          "Environment": { "Ref": "Environment" },
-          "AppName": { "Ref": "AppName" },
-          "TableName": { "Fn::GetAtt": ["DataStack", "Outputs.TodoTableName"] },
-          "UserPoolId": {
-            "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolId"]
-          },
-          "UserPoolClientId": {
-            "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolClientId"]
-          }
+          "Environment": { "Ref": "Environment" }
         }
       }
     }
   },
   "Outputs": {
-    "CognitoUserPoolId": {
-      "Description": "ID of the Cognito User Pool",
-      "Value": { "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolId"] }
-    },
-    "CognitoUserPoolClientId": {
-      "Description": "ID of the Cognito User Pool Client",
-      "Value": {
-        "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolClientId"]
-      }
-    },
-    "CognitoUserPoolDomain": {
-      "Description": "Domain of the Cognito User Pool",
-      "Value": { "Fn::GetAtt": ["AuthStack", "Outputs.CognitoUserPoolDomain"] }
-    },
-    "HostedUISignInUrl": {
-      "Description": "URL for the hosted UI sign-in page",
-      "Value": { "Fn::GetAtt": ["AuthStack", "Outputs.HostedUISignInUrl"] }
-    },
-    "ApiEndpoint": {
-      "Description": "URL of the API Gateway endpoint",
-      "Value": { "Fn::GetAtt": ["ApiStack", "Outputs.ApiEndpoint"] }
-    },
     "CloudFrontDomain": {
       "Description": "CloudFront distribution domain name",
-      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDomain"] }
-    },
-    "CallbackURLs": {
-      "Description": "Configured callback URLs",
-      "Value": { "Fn::GetAtt": ["AuthStack", "Outputs.CallbackURLs"] }
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDomainName"]
+      }
     }
   }
 }

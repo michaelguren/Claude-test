@@ -1,20 +1,32 @@
 ---
 type: PROJECT_DOCUMENTATION
 scope: TODO_APPLICATION
-importance: MEDIUM
+importance: HIGH
 project_specific: TRUE
-references: "README-ARCHITECTURE.md"
+references: "ARCHITECTURE.md, DEPLOYMENT.md, TESTING.md"
 author: "Michael Guren (with Claude AI assistance)"
 creation_date: "April 2025"
 updated_date: "April 2025"
-ai_guidance: "This document contains project-specific implementation details for the TODO application. For strategic architectural principles that apply across all projects, refer to README-ARCHITECTURE.md."
+ai_guidance: "This document serves as the primary entry point for understanding the Minimalist TODO application. It provides an overview of the project, its architecture, and implementation details."
 ---
 
 # Minimalist TODO Application
 
 A prototype TODO application built with minimal dependencies and maximum longevity in mind. This project serves as a foundation for understanding our architectural pattern for building long-lasting web applications.
 
-## Overview
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Architectural Philosophy](#architectural-philosophy)
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [Technical Approach](#technical-approach)
+- [Configuration System](#configuration-system)
+- [Development](#development)
+- [AWS Architecture](#aws-architecture)
+- [Project Goals](#project-goals)
+- [Authentication Strategy](#authentication-strategy)
+
+## Project Overview
 
 This TODO application demonstrates a minimal approach to web development:
 
@@ -23,6 +35,25 @@ This TODO application demonstrates a minimal approach to web development:
 - Custom micro-utilities instead of dependencies
 - Direct AWS service integration
 - Minimalist testing focusing on end-to-end functionality
+
+## Architectural Philosophy
+
+This project follows our Minimalist Cloud Architecture, designed for maximum longevity, maintainability, and operational simplicity. All solutions optimize for:
+
+- **Longevity**: Target 10+ years of stable operation without rewrites
+- **Minimalism**: Only the essential features and infrastructure
+- **Zero External Dependencies**: No frameworks, libraries, package managers, build steps
+- **AWS Native Services**: Well-established AWS managed services only
+
+The core architectural principles include:
+
+- **Minimal Dependencies**: Vanilla web technologies, micro-utilities over libraries
+- **Cloud Integration**: AWS managed services with direct integration where possible
+- **Data Persistence**: Single-table DynamoDB design optimized for access patterns
+- **API Design**: API Gateway with VTL for direct DynamoDB integration
+- **Authentication**: Cognito Hosted UI with mock authentication for local development
+
+For the complete architectural philosophy, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Project Structure
 
@@ -49,13 +80,16 @@ This TODO application demonstrates a minimal approach to web development:
 ├── scripts/              # Deployment scripts
 │   ├── deploy.sh         # Main deployment script
 │   ├── delete-stack.sh   # Stack deletion script
-│   ├── verify-deployment.js # Deployment verification
 │   └── local-server.js   # Simple development server
+├── README/               # Project documentation
+│   ├── README.md         # Main documentation (this file)
+│   ├── ARCHITECTURE.md   # Architectural principles
+│   ├── DEPLOYMENT.md     # Deployment guide
+│   └── TESTING.md        # Testing approach
 └── tests/                # Testing framework
     ├── e2e/              # End-to-end tests
     ├── test-utils.js     # Minimal testing utilities
-    ├── run-tests.js      # Test execution script
-    └── TESTING.md        # Testing documentation
+    └── run-tests.js      # Test execution script
 ```
 
 ## Features
@@ -89,7 +123,7 @@ This TODO application demonstrates a minimal approach to web development:
     - API template (API Gateway - coming soon)
   - Outputs and exports for cross-stack references
 
-### Backend (In Progress)
+### Backend
 
 - **S3** for static website hosting
 - **CloudFront** for content delivery and HTTPS
@@ -104,8 +138,65 @@ Our approach to deployment follows the same minimalist philosophy:
 - **CloudFormation** for declarative infrastructure
 - **Bash scripts** for automation
 - **S3 bucket** for CloudFormation template storage
-- **Multi-environment support** (dev/prod)
-- **Multi-account support** for strict environment separation
+- **Multi-account deployment** - Separate AWS accounts for DEV, STAGING, PROD
+- **Central configuration** - Single project-config.js file for all settings
+- **Deployment history** - Tracking of all deployments with timestamps
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for a comprehensive deployment guide.
+
+## Configuration System
+
+The application uses a single, central configuration file (`project-config.js`) that serves multiple purposes:
+
+1. **Deployment configuration** - Stores AWS resource identifiers and deployment information
+2. **Environment awareness** - Maintains environment-specific settings
+3. **Application configuration** - Provides runtime configuration for the application
+4. **Deployment history** - Tracks when, how, and by whom the application was deployed
+
+### Configuration File Structure
+
+```javascript
+const projectConfig = {
+  // Application metadata
+  application: {
+    name: "minimalist-todo",
+    description: "Minimalist TODO Application with zero dependencies"
+  },
+
+  // AWS deployment settings
+  aws: {
+    templateBucket: "minimalist-todo-templates-123456789012-20250427",
+    accountId: "123456789012"
+  },
+
+  // Resources created by CloudFormation
+  resources: {
+    stack: {
+      name: "minimalist-todo",
+      created: "2025-04-27T12:34:56Z",
+      updated: "2025-04-27T12:34:56Z"
+    },
+    frontend: {
+      bucketName: "minimalist-todo-bucket-abcdef",
+      cloudfrontId: "E1A2B3C4D5E6F7", 
+      cloudfrontDomain: "d123abcdef.cloudfront.net"
+    }
+  },
+
+  // Deployment history
+  deployments: [
+    { timestamp: "2025-04-27T12:34:56Z", user: "username", success: true }
+  ]
+};
+```
+
+### Environment Handling
+
+Unlike traditional applications that use environment variables or flags, this project:
+
+1. Uses separate AWS accounts for different environments (DEV/STAGING/PROD)
+2. Uses AWS CLI profiles to select the environment during deployment
+3. Maintains appropriate configuration in each environment's configuration file
 
 ## Development
 
@@ -121,7 +212,7 @@ node scripts/local-server.js
 
 ### Testing
 
-We use a minimalist testing approach focused on end-to-end testing:
+We use a minimalist testing approach focused on end-to-end testing. For details, see [TESTING.md](TESTING.md).
 
 ```bash
 # Run all tests
@@ -131,70 +222,22 @@ node tests/run-tests.js
 node tests/run-tests.js e2e
 ```
 
-See [TESTING.md](TESTING.md) for detailed testing documentation.
-
-## Deployment
-
-### Initial Deployment
-
-Deploy to AWS with:
-
-```bash
-# Make deployment script executable
-chmod +x scripts/deploy.sh
-
-# Deploy to dev environment (default)
-./scripts/deploy.sh
-
-# Deploy to production
-./scripts/deploy.sh -e prod
-
-# For multi-account setup
-AWS_PROFILE=prod ./scripts/deploy.sh -e prod
-```
-
-### Stack Deletion
-
-To delete a stack (including non-empty S3 buckets):
-
-```bash
-# Make deletion script executable
-chmod +x scripts/delete-stack.sh
-
-# Delete the dev stack
-./scripts/delete-stack.sh --stack minimalist-todo-dev
-
-# Delete the prod stack with a specific AWS profile
-./scripts/delete-stack.sh --stack minimalist-todo-prod --profile prod
-```
-
-### Deployment Verification
-
-Verify deployment with:
-
-```bash
-node scripts/verify-deployment.js <stack-name> <region>
-```
-
 ## AWS Architecture
 
 When deployed, the application uses:
 
 - **S3** for static website hosting
-
   - Private bucket with website configuration
   - Versioning enabled for content management
   - Secured via bucket policy (no public access)
 
 - **CloudFront** for content delivery
-
   - Global CDN with low latency
   - HTTPS by default
   - Custom error responses for SPA routing
   - Origin Access Control for S3 security
 
 - **DynamoDB** for persistent storage (coming soon)
-
   - Single-table design for TODO items
   - On-demand capacity for cost optimization
 
@@ -231,7 +274,3 @@ Our application follows a dual authentication approach based on the environment:
 - Supports multiple AWS accounts for different environments (DEV, STAGING, PROD)
 - Environment-specific Cognito User Pools and Client IDs are configured at deployment time
 - Frontend automatically detects current environment based on URL and uses appropriate authentication settings
-
----
-
-See [README-ARCHITECTURE.md](README-ARCHITECTURE.md) for our broader architectural principles and decisions that apply across projects.
