@@ -9,25 +9,32 @@ const projectConfig = {
   },
   "resources": {
     "stack": {
-      "name": null,
-      "created": null,
-      "updated": null
+      "name": "minimalist-todo-dev",
+      "created": "2025-04-27T21:58:11Z",
+      "updated": "2025-04-27T21:58:11Z"
     },
     "frontend": {
-      "bucketName": null,
-      "cloudfrontId": null,
-      "cloudfrontDomain": null
+      "bucketName": "minimalist-todo-dev-frontendstack-15-todoappbucket-h7brhlnjwosf",
+      "cloudfrontId": "E13A0HRBL1QP4A",
+      "cloudfrontDomain": "d2ncl60e938cjf.cloudfront.net"
     }
   },
-  "deployments": []
+  "deployments": [
+    {
+      "timestamp": "2025-04-27T21:58:11Z",
+      "user": "michaelguren",
+      "success": true,
+      "environment": "dev"
+    }
+  ]
 };
 
 // In browser environments, export to window
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.projectConfig = projectConfig;
 }
 
 // In Node.js environments, export as module
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = projectConfig;
 }

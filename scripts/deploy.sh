@@ -34,7 +34,7 @@ fi
 
 # Verify AWS credentials are valid before proceeding
 echo "Verifying AWS credentials..."
-if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text 2>/dev/null); then
+if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text --no-cli-pager 2>/dev/null); then
   echo "ERROR: AWS credentials are invalid or expired."
   echo "Please log in using 'aws sso login' or set valid AWS credentials."
   exit 1
@@ -57,12 +57,12 @@ if [ -f "$CONFIG_FILE" ] && grep -q "templateBucket" "$CONFIG_FILE" && grep -q -
   TEMPLATE_BUCKET=$(node -e "const cfg = require('./$CONFIG_FILE'); console.log(cfg.aws.templateBucket || '')")
   
   # Verify bucket exists
-  if ! aws s3api head-bucket --bucket "$TEMPLATE_BUCKET" 2>/dev/null; then
+  if ! aws s3api head-bucket --bucket "$TEMPLATE_BUCKET" --no-cli-pager 2>/dev/null; then
     echo "Template bucket no longer exists. Creating a new one."
     TEMPLATE_BUCKET="${APP_NAME}-templates-${AWS_ACCOUNT_ID}-${TIMESTAMP}"
     echo "Creating bucket: $TEMPLATE_BUCKET"
     
-    if ! aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$REGION"; then
+    if ! aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$REGION" --no-cli-pager; then
       echo "ERROR: Failed to create S3 bucket. Deployment aborted."
       exit 1
     fi
@@ -90,7 +90,7 @@ else
   TEMPLATE_BUCKET="${APP_NAME}-templates-${AWS_ACCOUNT_ID}-${TIMESTAMP}"
   echo "Creating bucket: $TEMPLATE_BUCKET"
   
-  if ! aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$REGION"; then
+  if ! aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$REGION" --no-cli-pager; then
     echo "ERROR: Failed to create S3 bucket. Deployment aborted."
     exit 1
   fi
@@ -129,12 +129,12 @@ echo "Using template bucket: $TEMPLATE_BUCKET"
 
 # Upload CloudFormation templates
 echo "Uploading CloudFormation templates..."
-if ! aws s3 cp backend/cloudformation/frontend.json "s3://$TEMPLATE_BUCKET/"; then
+if ! aws s3 cp backend/cloudformation/frontend.json "s3://$TEMPLATE_BUCKET/" --no-cli-pager; then
   echo "ERROR: Failed to upload CloudFormation templates. Deployment aborted."
   exit 1
 fi
 
-if ! aws s3 cp backend/cloudformation/main.json "s3://$TEMPLATE_BUCKET/"; then
+if ! aws s3 cp backend/cloudformation/main.json "s3://$TEMPLATE_BUCKET/" --no-cli-pager; then
   echo "ERROR: Failed to upload CloudFormation templates. Deployment aborted."
   exit 1
 fi
@@ -149,51 +149,80 @@ if ! aws cloudformation deploy \
     AppName="$APP_NAME" \
     S3Bucket="$TEMPLATE_BUCKET" \
   --capabilities CAPABILITY_IAM \
-  --region "$REGION"; then
+  --region "$REGION" --no-cli-pager; then
   
   echo "ERROR: CloudFormation deployment failed. Deployment aborted."
   exit 1
 fi
 
-# Get outputs from CloudFormation using a different approach
+# Get outputs from CloudFormation using a more verbose approach
 echo "Getting stack outputs..."
 
-# Create a temporary file to store outputs
-TEMP_FILE=$(mktemp)
+# Wait for the stack to be fully deployed (sometimes there's a delay)
+echo "Waiting for CloudFormation deployment to complete..."
+sleep 10
 
-# Get the stack outputs and store them in the temporary file
-if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" --output json > "$TEMP_FILE"; then
-  echo "ERROR: Failed to get CloudFormation stack information."
-  rm -f "$TEMP_FILE"
+# Get the CloudFront Domain from the main stack
+echo "Getting CloudFront domain from main stack..."
+CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" \
+  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomain'].OutputValue" --output text --no-cli-pager)
+
+echo "CloudFront Domain: $CLOUDFRONT_DOMAIN"
+
+# Get the nested frontend stack physical ID
+echo "Finding nested frontend stack..."
+FRONTEND_STACK_ID=$(aws cloudformation list-stack-resources --stack-name "$STACK_NAME" --region "$REGION" \
+  --query "StackResourceSummaries[?LogicalResourceId=='FrontendStack'].PhysicalResourceId" --output text --no-cli-pager)
+
+if [ -z "$FRONTEND_STACK_ID" ]; then
+  echo "ERROR: Could not find FrontendStack resource in the main stack."
+  echo "Make sure the main.json template has a nested stack resource named 'FrontendStack'."
   exit 1
 fi
 
-# Extract the needed values using jq if available, or fallback to grep
-if command -v jq &> /dev/null; then
-  S3_BUCKET=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="S3BucketName") | .OutputValue' "$TEMP_FILE")
-  CLOUDFRONT_ID=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="CloudFrontDistributionId") | .OutputValue' "$TEMP_FILE")
-  CLOUDFRONT_DOMAIN=$(jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="CloudFrontDomainName") | .OutputValue' "$TEMP_FILE")
-else
-  # Fallback to grep and basic text processing
-  S3_BUCKET=$(grep -o '"OutputKey":"S3BucketName","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
-  CLOUDFRONT_ID=$(grep -o '"OutputKey":"CloudFrontDistributionId","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
-  CLOUDFRONT_DOMAIN=$(grep -o '"OutputKey":"CloudFrontDomainName","OutputValue":"[^"]*"' "$TEMP_FILE" | sed 's/.*"OutputValue":"\([^"]*\)".*/\1/')
+echo "Found Frontend Stack ID: $FRONTEND_STACK_ID"
+
+# Get outputs from the nested frontend stack
+echo "Getting outputs from the frontend stack..."
+FRONTEND_OUTPUTS=$(aws cloudformation describe-stacks --stack-name "$FRONTEND_STACK_ID" --region "$REGION" --no-cli-pager)
+
+# Display raw outputs for debugging
+echo "=== Frontend Stack Raw Outputs ==="
+echo "$FRONTEND_OUTPUTS"
+echo "=== End of Frontend Stack Raw Outputs ==="
+
+# Extract S3 bucket name and CloudFront ID from frontend stack
+S3_BUCKET=$(echo "$FRONTEND_OUTPUTS" | grep -o '"OutputKey": *"S3BucketName".*"OutputValue": *"[^"]*"' | grep -o '"OutputValue": *"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')
+CLOUDFRONT_ID=$(echo "$FRONTEND_OUTPUTS" | grep -o '"OutputKey": *"CloudFrontDistributionId".*"OutputValue": *"[^"]*"' | grep -o '"OutputValue": *"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')
+
+# If grep approach fails, try with jq
+if [ -z "$S3_BUCKET" ] && command -v jq &> /dev/null; then
+  echo "Trying extraction with jq..."
+  S3_BUCKET=$(echo "$FRONTEND_OUTPUTS" | jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="S3BucketName") | .OutputValue')
+  CLOUDFRONT_ID=$(echo "$FRONTEND_OUTPUTS" | jq -r '.Stacks[0].Outputs[] | select(.OutputKey=="CloudFrontDistributionId") | .OutputValue')
 fi
 
-# Clean up the temporary file
-rm -f "$TEMP_FILE"
-
-# Check if we got the values
+# If still not successful, try with AWS CLI query directly
 if [ -z "$S3_BUCKET" ]; then
-  echo "ERROR: Could not extract S3 bucket name from CloudFormation outputs."
-  exit 1
+  echo "Trying extraction with AWS CLI query..."
+  S3_BUCKET=$(aws cloudformation describe-stacks --stack-name "$FRONTEND_STACK_ID" --region "$REGION" \
+    --query "Stacks[0].Outputs[?OutputKey=='S3BucketName'].OutputValue" --output text --no-cli-pager)
+  CLOUDFRONT_ID=$(aws cloudformation describe-stacks --stack-name "$FRONTEND_STACK_ID" --region "$REGION" \
+    --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" --output text --no-cli-pager)
 fi
 
-# Display the extracted values
-echo "CloudFormation outputs:"
-echo "  S3 Bucket: $S3_BUCKET"
-echo "  CloudFront ID: $CLOUDFRONT_ID"
-echo "  CloudFront Domain: $CLOUDFRONT_DOMAIN"
+# Show the extracted values
+echo "Extracted values from frontend stack:"
+echo "  S3 Bucket: '$S3_BUCKET'"
+echo "  CloudFront ID: '$CLOUDFRONT_ID'"
+echo "  CloudFront Domain: '$CLOUDFRONT_DOMAIN'"
+
+# Check if we got the bucket name
+if [ -z "$S3_BUCKET" ]; then
+  echo "ERROR: Could not extract S3 bucket name from frontend stack outputs."
+  echo "Please verify that the frontend stack has an output named 'S3BucketName'."
+  exit 1
+fi
 
 # Create a separate file for updating the config to avoid shell escaping issues
 cat > update_config.js << EOF
@@ -260,7 +289,7 @@ rm -f update_config.js
 
 # Upload frontend files
 echo "Uploading frontend files to S3 bucket: $S3_BUCKET"
-if ! aws s3 sync frontend/ "s3://$S3_BUCKET" --delete; then
+if ! aws s3 sync frontend/ "s3://$S3_BUCKET" --delete --no-cli-pager; then
   echo "ERROR: Failed to upload frontend files. Deployment is incomplete."
   exit 1
 fi
