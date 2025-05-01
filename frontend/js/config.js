@@ -35,23 +35,13 @@
       cognitoLogoutUrl: "", // Not used in local development
     },
 
-    dev: {
-      apiBaseUrl: "https://api-dev.example.com",
-      useMockApi: false,
-      cognitoUserPoolId: "", // DEV User Pool ID
-      cognitoClientId: "", // DEV Client ID
-      cognitoHostedUiUrl: "", // DEV Hosted UI URL
-      cognitoLogoutUrl: "", // DEV Logout URL
-    },
-
-    prod: {
+    aws: {
       apiBaseUrl: "https://api.example.com",
       useMockApi: false,
-      debug: false,
-      cognitoUserPoolId: "", // PROD User Pool ID
-      cognitoClientId: "", // PROD Client ID
-      cognitoHostedUiUrl: "", // PROD Hosted UI URL
-      cognitoLogoutUrl: "", // PROD Logout URL
+      cognitoUserPoolId: "", // AWS User Pool ID
+      cognitoClientId: "", // AWS Client ID
+      cognitoHostedUiUrl: "", // AWS Hosted UI URL
+      cognitoLogoutUrl: "", // AWS Logout URL
     },
   };
 
@@ -59,15 +49,13 @@
   function detectEnvironment() {
     const hostname = window.location.hostname;
 
+    // We're either local or on AWS - nothing in between
     if (hostname === "localhost" || hostname === "127.0.0.1") {
       return "local";
     }
 
-    if (hostname.includes("-dev") || hostname.includes(".dev.")) {
-      return "dev";
-    }
-
-    return "prod";
+    // Everything else is on AWS
+    return "aws";
   }
 
   // Load configuration from CloudFormation outputs or remote source
