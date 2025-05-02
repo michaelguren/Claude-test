@@ -4,27 +4,16 @@
   "Parameters": {
     "AppName": {
       "Type": "String",
-      "Description": "Application name from project-config.js"
-    },
-    "AuthEnabled": {
-      "Type": "String",
-      "Description": "Whether authentication is enabled (true/false)",
-      "AllowedValues": ["true", "false"],
-      "Default": "false"
+      "Description": "Name of the application"
     },
     "Stage": {
       "Type": "String",
-      "Description": "Deployment stage (dev, prod)",
+      "Description": "Deployment stage (dev or prod)",
       "AllowedValues": ["dev", "prod"]
     },
     "TemplateBucket": {
       "Type": "String",
       "Description": "S3 bucket containing nested stack templates"
-    }
-  },
-  "Conditions": {
-    "CreateAuthResources": {
-      "Fn::Equals": [{ "Ref": "AuthEnabled" }, "true"]
     }
   },
   "Resources": {
@@ -35,14 +24,13 @@
           "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/frontend.json"
         },
         "Parameters": {
-          "AppName": { "Ref": "AppName" },
-          "Stage": { "Ref": "Stage" }
+          "Stage": { "Ref": "Stage" },
+          "AppName": { "Ref": "AppName" }
         }
       }
     },
     "AuthStack": {
       "Type": "AWS::CloudFormation::Stack",
-      "Condition": "CreateAuthResources",
       "Properties": {
         "TemplateURL": {
           "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/auth.json"

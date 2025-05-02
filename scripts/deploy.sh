@@ -25,6 +25,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+
+echo "Reading application configuration..."
+if [ -f "$CONFIG_FILE" ]; then
+  APP_NAME=$(node -e "console.log(require('./$CONFIG_FILE').application.name)")
+  STACK_NAME="${APP_NAME}-${STAGE}"
+else
+  echo "ERROR: application configuration missing."
+  exit 1
+fi
+
 # Verify stage is valid
 if [[ "$STAGE" != "dev" && "$STAGE" != "prod" ]]; then
   echo "ERROR: Stage must be 'dev' or 'prod'. Got: $STAGE"
@@ -40,17 +50,15 @@ if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output tex
   exit 1
 fi
 
+# Now that we've verified credentials, get the region
+REGION=$(aws configure get region)
+TIMESTAMP=$(date +%Y%m%d)
+
 # Get account alias for logging purposes
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases[0]" --output text --no-cli-pager)
 if [ -z "$ACCOUNT_ALIAS" ]; then
   ACCOUNT_ALIAS="aws-${AWS_ACCOUNT_ID}"
 fi
-
-# Now that we've verified credentials, get the region
-REGION=$(aws configure get region)
-APP_NAME="minimalist-todo"
-STACK_NAME="${APP_NAME}-${STAGE}"
-TIMESTAMP=$(date +%Y%m%d)
 
 # Centralized deployment info display
 echo "=============================================="
