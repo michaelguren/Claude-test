@@ -8,7 +8,31 @@ cd "$(dirname "$0")/.."
 
 CONFIG_FILE="project-config.js"
 
-# Get AWS account ID and alias for environment detection
+# Default stage is dev
+STAGE="dev"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--stage)
+      STAGE="$2"
+      shift 2
+      ;;
+    *)
+      # Skip unknown options
+      shift
+      ;;
+  esac
+done
+
+# Verify stage is valid
+if [[ "$STAGE" != "dev" && "$STAGE" != "prod" ]]; then
+  echo "ERROR: Stage must be 'dev' or 'prod'. Got: $STAGE"
+  echo "Usage: $0 [-s|--stage <dev|prod>]"
+  exit 1
+fi
+
+# Get AWS account ID for deployment
 echo "Verifying AWS credentials..."
 if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text --no-cli-pager 2>/dev/null); then
   echo "ERROR: AWS credentials are invalid or expired."
@@ -16,22 +40,21 @@ if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output tex
   exit 1
 fi
 
-# Get account alias to determine environment (dev/prod)
+# Get account alias for logging purposes
 ACCOUNT_ALIAS=$(aws iam list-account-aliases --query "AccountAliases[0]" --output text --no-cli-pager)
 if [ -z "$ACCOUNT_ALIAS" ]; then
-  # If no alias is set, use a default value based on account ID
   ACCOUNT_ALIAS="aws-${AWS_ACCOUNT_ID}"
-  echo "No AWS account alias found, using: $ACCOUNT_ALIAS"
 fi
 
+# Now that we've verified credentials, get the region
 REGION=$(aws configure get region)
 APP_NAME="minimalist-todo"
-STAGE="$ACCOUNT_ALIAS"
 STACK_NAME="${APP_NAME}-${STAGE}"
 TIMESTAMP=$(date +%Y%m%d)
 
-# Centralized account info display
+# Centralized deployment info display
 echo "=============================================="
+echo "Deployment Configuration:"
 echo "AWS Account: $ACCOUNT_ALIAS ($AWS_ACCOUNT_ID)"
 echo "Region: $REGION"
 echo "Stage: $STAGE"
@@ -92,9 +115,12 @@ else
     } catch(e) {
       cfg = {
         application: { name: '$APP_NAME', description: 'Minimalist TODO Application with zero dependencies' },
-        aws: { templateBucket: null, accountId: null },
-        resources: { stack: { name: null, created: null, updated: null }, 
-                   frontend: { bucketName: null, cloudfrontId: null, cloudfrontDomain: null } },
+        aws: { templateBucket: null, accountId: null, region: '$REGION' },
+        resources: { 
+          stack: { name: null, created: null, updated: null }, 
+          frontend: { bucketName: null, cloudfrontId: null, cloudfrontDomain: null },
+          auth: { userPoolId: '', userPoolClientId: '', userPoolDomain: '' }
+        },
         deployments: []
       };
     }
@@ -299,10 +325,11 @@ try {
 } catch(e) {
   cfg = {
     application: { name: '${APP_NAME}', description: 'Minimalist TODO Application with zero dependencies' },
-    aws: { templateBucket: '${TEMPLATE_BUCKET}', accountId: '${AWS_ACCOUNT_ID}' },
+    aws: { templateBucket: '${TEMPLATE_BUCKET}', accountId: '${AWS_ACCOUNT_ID}', region: '${REGION}' },
     resources: { 
       stack: { name: null, created: null, updated: null }, 
-      frontend: { bucketName: null, cloudfrontId: null, cloudfrontDomain: null } 
+      frontend: { bucketName: null, cloudfrontId: null, cloudfrontDomain: null },
+      auth: { userPoolId: '', userPoolClientId: '', userPoolDomain: '' }
     },
     deployments: []
   };
