@@ -1,21 +1,30 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Main CloudFormation template for Minimalist TODO App",
+  "Description": "Minimalist TODO Application - Main Stack",
   "Parameters": {
-    "Environment": {
-      "Type": "String",
-      "Default": "dev",
-      "AllowedValues": ["dev", "prod"],
-      "Description": "Environment (dev or prod)"
-    },
     "AppName": {
       "Type": "String",
-      "Default": "minimalist-todo",
-      "Description": "Application name used for resource naming"
+      "Description": "Application name from project-config.js"
     },
-    "S3Bucket": {
+    "AuthEnabled": {
       "Type": "String",
-      "Description": "S3 bucket containing CloudFormation templates"
+      "Description": "Whether authentication is enabled (true/false)",
+      "AllowedValues": ["true", "false"],
+      "Default": "false"
+    },
+    "Stage": {
+      "Type": "String",
+      "Description": "Deployment stage (dev, prod)",
+      "AllowedValues": ["dev", "prod"]
+    },
+    "TemplateBucket": {
+      "Type": "String",
+      "Description": "S3 bucket containing nested stack templates"
+    }
+  },
+  "Conditions": {
+    "CreateAuthResources": {
+      "Fn::Equals": [{ "Ref": "AuthEnabled" }, "true"]
     }
   },
   "Resources": {
@@ -23,20 +32,36 @@
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
         "TemplateURL": {
-          "Fn::Sub": "https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/frontend.json"
+          "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/frontend.json"
         },
         "Parameters": {
-          "Environment": { "Ref": "Environment" }
+          "AppName": { "Ref": "AppName" },
+          "Stage": { "Ref": "Stage" }
+        }
+      }
+    },
+    "AuthStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Condition": "CreateAuthResources",
+      "Properties": {
+        "TemplateURL": {
+          "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/auth.json"
+        },
+        "Parameters": {
+          "AppName": { "Ref": "AppName" },
+          "Stage": { "Ref": "Stage" },
+          "CallbackURL": {
+            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
+          },
+          "LogoutURL": { "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"] }
         }
       }
     }
   },
   "Outputs": {
-    "CloudFrontDomain": {
-      "Description": "CloudFront distribution domain name",
-      "Value": {
-        "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDomainName"]
-      }
+    "WebsiteURL": {
+      "Description": "URL of the website",
+      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"] }
     }
   }
 }
