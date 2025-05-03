@@ -10,46 +10,34 @@
       "Type": "String",
       "Description": "Deployment stage (dev or prod)",
       "AllowedValues": ["dev", "prod"]
-    },
-    "TemplateBucket": {
-      "Type": "String",
-      "Description": "S3 bucket containing nested stack templates"
     }
   },
   "Resources": {
     "FrontendStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": {
-          "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/frontend.json"
-        },
+        "TemplateURL": "frontend.json",
         "Parameters": {
           "Stage": { "Ref": "Stage" },
           "AppName": { "Ref": "AppName" }
         }
       }
-    },
-    "AuthStack": {
-      "Type": "AWS::CloudFormation::Stack",
-      "Properties": {
-        "TemplateURL": {
-          "Fn::Sub": "https://${TemplateBucket}.s3.${AWS::Region}.amazonaws.com/auth.json"
-        },
-        "Parameters": {
-          "AppName": { "Ref": "AppName" },
-          "Stage": { "Ref": "Stage" },
-          "CallbackURL": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
-          },
-          "LogoutURL": { "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"] }
-        }
-      }
     }
   },
   "Outputs": {
-    "WebsiteURL": {
+    "ApplicationURL": {
       "Description": "URL of the website",
-      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"] }
+      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"] }
+    },
+    "S3BucketName": {
+      "Description": "S3 bucket name for static website files",
+      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.S3BucketName"] }
+    },
+    "CloudFrontDistributionId": {
+      "Description": "CloudFront distribution ID",
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDistributionId"]
+      }
     }
   }
 }

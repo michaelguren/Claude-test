@@ -1,0 +1,63 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Minimalist TODO Application - Main Stack",
+    "Parameters": {
+        "AppName": {
+            "Type": "String",
+            "Description": "Name of the application"
+        },
+        "Stage": {
+            "Type": "String",
+            "Description": "Deployment stage (dev or prod)",
+            "AllowedValues": [
+                "dev",
+                "prod"
+            ]
+        }
+    },
+    "Resources": {
+        "FrontendStack": {
+            "Type": "AWS::CloudFormation::Stack",
+            "Properties": {
+                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimalist-todo-templates-us-east-1/b4c734431d6839b055f457ec02f57d32.template",
+                "Parameters": {
+                    "Stage": {
+                        "Ref": "Stage"
+                    },
+                    "AppName": {
+                        "Ref": "AppName"
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "ApplicationURL": {
+            "Description": "URL of the website",
+            "Value": {
+                "Fn::GetAtt": [
+                    "FrontendStack",
+                    "Outputs.ApplicationURL"
+                ]
+            }
+        },
+        "S3BucketName": {
+            "Description": "S3 bucket name for static website files",
+            "Value": {
+                "Fn::GetAtt": [
+                    "FrontendStack",
+                    "Outputs.S3BucketName"
+                ]
+            }
+        },
+        "CloudFrontDistributionId": {
+            "Description": "CloudFront distribution ID",
+            "Value": {
+                "Fn::GetAtt": [
+                    "FrontendStack",
+                    "Outputs.CloudFrontDistributionId"
+                ]
+            }
+        }
+    }
+}

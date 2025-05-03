@@ -1,0 +1,17 @@
+,
+    "AuthStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "auth.json",
+        "Parameters": {
+          "AppName": { "Ref": "AppName" },
+          "Stage": { "Ref": "Stage" },
+          "CallbackURL": {
+            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
+          },
+          "LogoutURL": {
+            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
+          }
+        }
+      }
+    }

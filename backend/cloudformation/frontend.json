@@ -67,6 +67,7 @@
     },
     "TodoAppCloudFront": {
       "Type": "AWS::CloudFront::Distribution",
+      "DependsOn": ["TodoAppBucket", "TodoAppOAC"],
       "Properties": {
         "DistributionConfig": {
           "Origins": [
@@ -77,6 +78,9 @@
               "Id": "S3Origin",
               "OriginAccessControlId": {
                 "Fn::GetAtt": ["TodoAppOAC", "Id"]
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": ""
               }
             }
           ],
@@ -160,19 +164,7 @@
               "Condition": {
                 "StringEquals": {
                   "AWS:SourceArn": {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "arn:aws:cloudfront::",
-                        {
-                          "Ref": "AWS::AccountId"
-                        },
-                        ":distribution/",
-                        {
-                          "Ref": "TodoAppCloudFront"
-                        }
-                      ]
-                    ]
+                    "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${TodoAppCloudFront}"
                   }
                 }
               }
@@ -200,12 +192,6 @@
             ]
           ]
         }
-      }
-    },
-    "S3BucketWebsiteURL": {
-      "Description": "S3 bucket website URL (only accessible through CloudFront)",
-      "Value": {
-        "Fn::GetAtt": ["TodoAppBucket", "WebsiteURL"]
       }
     },
     "CloudFrontDistributionId": {
