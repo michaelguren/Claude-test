@@ -1,26 +1,13 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Minimalist TODO Application - Main Stack",
-  "Parameters": {
-    "AppName": {
-      "Type": "String",
-      "Description": "Name of the application"
-    },
-    "Stage": {
-      "Type": "String",
-      "Description": "Deployment stage (dev or prod)",
-      "AllowedValues": ["dev", "prod"]
-    }
-  },
+  "Parameters": {},
   "Resources": {
     "FrontendStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
         "TemplateURL": "frontend.json",
-        "Parameters": {
-          "Stage": { "Ref": "Stage" },
-          "AppName": { "Ref": "AppName" }
-        }
+        "Parameters": {}
       }
     }
   },

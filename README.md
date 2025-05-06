@@ -1,77 +1,59 @@
 ---
 type: PROJECT_OVERVIEW
 importance: HIGHEST
-ai_guidance: "This file provides AI and humans with a high-level entry point. It summarizes the philosophy, structure, and how all pieces of the project fit together."
+ai_guidance: "Primary entry point for humans and AI. Summarizes project philosophy, structure, and key files."
 ---
 
-# 📝 Minimalist TODO Application Template
+# 📝 Minimalist TODO Application
 
-A modern, AI-native web application template built with zero dependencies and long-term maintainability in mind.
+A serverless, dependency-free web application template for longevity and simplicity, built with AWS and vanilla web technologies.
 
-This repo serves as the foundation for all web apps I create going forward. It prioritizes:
+## 🧠 Philosophy
 
-- 🧠 **AI-optimized architecture** (agentic coding ready)
-- 💡 **Human-friendly structure** (readable, modular, maintainable)
-- 🌐 **Serverless backend** (AWS-native: Lambda, DynamoDB, CloudFormation)
-- ⚙️ **Zero frontend frameworks** (pure HTML, CSS, JavaScript)
-- 🧪 **Minimalist testing** (unit, integration, and E2E, no test dependencies)
-- 🔐 **Dual-mode authentication** (Cognito or mock fallback)
-
----
+- **Zero Dependencies**: No frameworks, npm, or build tools.
+- **Longevity**: Designed to run 10+ years without maintenance.
+- **Simplicity**: Minimal, human-readable code and infrastructure.
+- **AI-Native**: Structured for AI-assisted development and reasoning.
 
 ## 📂 Project Highlights
 
-| Area            | Tech                                                  |
-| --------------- | ----------------------------------------------------- |
-| UI              | Vanilla JS, no frameworks                             |
-| Hosting         | AWS S3 + CloudFront                                   |
-| API Layer       | API Gateway + Lambda                                  |
-| Database        | DynamoDB                                              |
-| Auth (optional) | Cognito User Pools                                    |
-| Infra-as-Code   | Pure CloudFormation JSON                              |
-| Config          | Central `project-config.js`                           |
-| Deployment      | Simple shell scripts (`deploy.sh`, `delete-stack.sh`) |
+| Area          | Tech                                               |
+| ------------- | -------------------------------------------------- |
+| UI            | Vanilla HTML, CSS, JavaScript                      |
+| Hosting       | S3 + CloudFront                                    |
+| Infra-as-Code | CloudFormation JSON (`main.json`, `frontend.json`) |
+| Config        | Minimal `project-config.js`                        |
+| Deployment    | Bash scripts (`deploy.sh`, `delete-stack.sh`)      |
 
----
+## 📁 Key Files
 
-## 📚 Key Documentation (in /README)
+| File/Path                              | Purpose                                         |
+| -------------------------------------- | ----------------------------------------------- |
+| `frontend/index.html`                  | Main HTML entry point                           |
+| `frontend/js/app.js`                   | Core UI and API logic                           |
+| `backend/cloudformation/main.json`     | Main CloudFormation stack                       |
+| `backend/cloudformation/frontend.json` | Frontend infrastructure                         |
+| `project-config.js`                    | Static config (`appName`, `defaultEnvironment`) |
+| `scripts/deploy.sh`                    | Deploys stack and frontend assets               |
+| `scripts/delete-stack.sh`              | Cleans up stack and S3 buckets                  |
 
-- `GUIDE-ARCHITECTURE.md` – System design and stack
-- `GUIDE-DEPLOYMENT.md` – Infra and deploy logic
-- `AI-README.md` – AI-specific reasoning guide
+## 🚀 Deployment
 
----
+- **Multi-Account**: Separate AWS accounts for DEV/PROD using AWS SSO.
+- **Stack Naming**: `<appName>-<Environment>` (e.g., `MinimalistTodoStack-DEV`).
+- **Scripts**:
+  - Run `deploy.sh` to package and deploy (`ENVIRONMENT=PROD ./deploy.sh` for PROD).
+  - Run `delete-stack.sh` to clean up (`ENVIRONMENT=PROD ./delete-stack.sh` for PROD).
+- See `GUIDE-DEPLOYMENT.md` for details.
 
-## 🧠 AI & Agentic Coding Ready
+## 🤖 AI Readiness
 
-This project is built with the future in mind:
+- **Metadata**: Files tagged with `type`, `importance`, `ai_guidance`.
+- **Prompts**: See `AI-GUIDE.md` for AI interaction examples.
+- **Constraints**: No frameworks, TypeScript, or non-AWS services.
 
-- Every doc is tagged with metadata (type, scope, ai_guidance)
-- `GUIDE-AI.md` tells LLMs how to reason about this codebase
-- `GUIDE-TASKS.md` provides plan-step-action blueprints
-- Folder and file names are contextually chunkable for AI embeddings
+## 📚 Documentation
 
-This isn’t just a TODO app — it’s a living blueprint for how AI and humans can build great software together.
-
----
-
-## 🔄 Auth Modes
-
-You can run the app in two modes:
-
-| Mode                 | Behavior                            |
-| -------------------- | ----------------------------------- |
-| `authEnabled: true`  | Uses Cognito for login              |
-| `authEnabled: false` | Uses mock identity (static user ID) |
-
-Control this via `project-config.js`
-
----
-
-## 🛠️ Setup (Minimal Requirements)
-
-```bash
-# Configure AWS CLI and edit project-config.js
-cd scripts
-./deploy.sh     # Deploy full or mock stack based on config
-```
+- `/README/AI-GUIDE.md`: AI reasoning and prompt guide.
+- `/README/GUIDE-DEPLOYMENT.md`: Deployment and script details.
+- `/docs/archive/`: Historical guides (e.g., `GUIDE-ARCHITECTURE.md`).

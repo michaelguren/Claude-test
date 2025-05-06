@@ -1,48 +1,37 @@
 ---
 type: DEPLOYMENT_DOCUMENTATION
 importance: HIGH
-ai_guidance: "This document explains how deployment works, including configuration strategy, environment management, and infrastructure provisioning patterns."
+ai_guidance: "Details deployment and cleanup scripts, configuration, and environment handling."
 ---
 
 # 🚀 Deployment Guide
 
-## 🔧 Configuration Strategy
+## 🔧 Configuration
 
-### Central Configuration Approach
+- **`project-config.js`**: Defines `appName` (e.g., `MinimalistTodoStack`) and `defaultEnvironment` (e.g., `DEV`).
+- **Dynamic Values**: `STACK_NAME` (`<appName>-<Environment>`), `TEMPLATE_BUCKET` (`minimalist-todo-templates-<AccountID>`), and `REGION` derived in scripts.
 
-This project uses a single source of truth for all configuration parameters via `project-config.js`. This approach:
+## 📜 Scripts
 
-- Centralizes all environment-specific parameters in one file
-- Simplifies deployment scripts by providing a consistent interface
-- Enables toggling between different configurations (e.g., auth modes)
-- Reduces duplication and potential configuration errors
+- **`deploy.sh`**:
+  - Creates template bucket if missing (silent).
+  - Packages `main.json`, `frontend.json` to S3.
+  - Deploys stack (`MinimalistTodoStack-${ENVIRONMENT}`).
+  - Syncs `frontend/` to S3 bucket from stack output.
+  - Usage: `./deploy.sh` or `ENVIRONMENT=PROD ./deploy.sh`.
+- **`delete-stack.sh`**:
+  - Cleans template and stack S3 buckets (silent).
+  - Deletes stack (`MinimalistTodoStack-${ENVIRONMENT}`).
+  - Usage: `./delete-stack.sh` or `ENVIRONMENT=PROD ./delete-stack.sh`.
 
-### Key Configuration Parameters
+## 🌍 Multi-Account Setup
 
-| Parameter Category | Examples                  | Purpose                              |
-| ------------------ | ------------------------- | ------------------------------------ |
-| Authentication     | `authEnabled`             | Toggle between Cognito and mock auth |
-| AWS Resources      | `bucketName`, `stackName` | Resource naming consistency          |
-| Region Settings    | `awsRegion`, `accountId`  | Deployment targeting                 |
-| Environment        | `stage` (dev/prod)        | Environment-specific configurations  |
-| Templates          | `templatesBucket`         | S3 location for nested templates     |
+- **DEV/PROD**: Separate AWS accounts via SSO.
+- **Environment**: Set `ENVIRONMENT` variable (defaults to `DEV`).
+- **Region**: Uses `AWS_DEFAULT_REGION` (defaults to `us-east-1`).
 
-### How Deployment Scripts Use Configuration
+## 🛠️ Adding Features
 
-The `deploy.sh` script reads from `project-config.js` to:
-
-1. Determine which CloudFormation stack to deploy (auth-enabled or mock)
-2. Set appropriate resource names and parameters
-3. Configure environment-specific settings
-4. Ensure consistent resource naming across deployments
-
-### Adding New Features
-
-When implementing new features:
-
-1. Add any new configuration parameters to `project-config.js`
-2. Reference these parameters in CloudFormation templates using parameters
-3. Update deployment scripts to pass these parameters during deployment
-4. Keep feature toggles (like `authEnabled`) in this central file
-
-This approach ensures that the entire infrastructure remains configurable from a single location while maintaining our zero-dependency philosophy.
+- Update `frontend.json` for new resources.
+- Modify `deploy.sh` to pass parameters if needed.
+- Test with `./deploy.sh` and clean up with `./delete-stack.sh`.

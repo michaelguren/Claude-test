@@ -24,6 +24,7 @@ Thumbs.db
 # AWS SAM or CloudFormation build folders (optional if you use them)
 .aws-sam/
 .cfn-cache/
+./backend/cloudformation/packaged-template.json
 
 # Python cache (if you have Python scripts)
 __pycache__/

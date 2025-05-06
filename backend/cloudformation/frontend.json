@@ -1,22 +1,17 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Minimalist TODO Application - Frontend Infrastructure",
-  "Parameters": {
-    "Stage": {
-      "Description": "Deployment environment",
-      "Type": "String",
-      "Default": "dev",
-      "AllowedValues": ["dev", "prod"]
-    },
-    "AppName": {
-      "Type": "String",
-      "Description": "Application name from project-config.js"
-    }
-  },
+  "Parameters": {},
   "Resources": {
     "TodoAppBucket": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
+        "BucketName": {
+          "Fn::Join": [
+            "-",
+            ["minimalist-todo", { "Fn::Sub": "${AWS::AccountId}" }]
+          ]
+        },
         "WebsiteConfiguration": {
           "IndexDocument": "index.html",
           "ErrorDocument": "index.html"
@@ -32,33 +27,18 @@
         },
         "Tags": [
           {
-            "Key": "Stage",
-            "Value": {
-              "Ref": "Stage"
-            }
-          },
-          {
             "Key": "Application",
-            "Value": "MinimalistTodoApp"
+            "Value": "MinimalistTodoStack"
           }
         ]
-      }
+      },
+      "DeletionPolicy": "Retain"
     },
     "TodoAppOAC": {
       "Type": "AWS::CloudFront::OriginAccessControl",
       "Properties": {
         "OriginAccessControlConfig": {
-          "Name": {
-            "Fn::Join": [
-              "-",
-              [
-                "MinimalistTodoApp-S3-OAC",
-                {
-                  "Ref": "Stage"
-                }
-              ]
-            ]
-          },
+          "Name": "MinimalistTodoStack-S3-OAC",
           "OriginAccessControlOriginType": "s3",
           "SigningBehavior": "always",
           "SigningProtocol": "sigv4"
@@ -79,9 +59,7 @@
               "OriginAccessControlId": {
                 "Fn::GetAtt": ["TodoAppOAC", "Id"]
               },
-              "S3OriginConfig": {
-                "OriginAccessIdentity": ""
-              }
+              "S3OriginConfig": {}
             }
           ],
           "Enabled": true,
@@ -91,15 +69,7 @@
             "ViewerProtocolPolicy": "redirect-to-https",
             "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
             "CachedMethods": ["GET", "HEAD", "OPTIONS"],
-            "ForwardedValues": {
-              "QueryString": false,
-              "Cookies": {
-                "Forward": "none"
-              }
-            },
-            "MinTTL": 0,
-            "DefaultTTL": 86400,
-            "MaxTTL": 31536000,
+            "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
             "Compress": true
           },
           "PriceClass": "PriceClass_100",
@@ -122,14 +92,8 @@
         },
         "Tags": [
           {
-            "Key": "Stage",
-            "Value": {
-              "Ref": "Stage"
-            }
-          },
-          {
             "Key": "Application",
-            "Value": "MinimalistTodoApp"
+            "Value": "MinimalistTodoStack"
           }
         ]
       }
@@ -137,9 +101,7 @@
     "TodoAppBucketPolicy": {
       "Type": "AWS::S3::BucketPolicy",
       "Properties": {
-        "Bucket": {
-          "Ref": "TodoAppBucket"
-        },
+        "Bucket": { "Ref": "TodoAppBucket" },
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -149,13 +111,7 @@
               "Resource": {
                 "Fn::Join": [
                   "",
-                  [
-                    "arn:aws:s3:::",
-                    {
-                      "Ref": "TodoAppBucket"
-                    },
-                    "/*"
-                  ]
+                  ["arn:aws:s3:::", { "Ref": "TodoAppBucket" }, "/*"]
                 ]
               },
               "Principal": {
@@ -177,39 +133,19 @@
   "Outputs": {
     "S3BucketName": {
       "Description": "S3 bucket name for static website files",
-      "Value": {
-        "Ref": "TodoAppBucket"
-      },
+      "Value": { "Ref": "TodoAppBucket" },
       "Export": {
         "Name": {
-          "Fn::Join": [
-            "-",
-            [
-              {
-                "Ref": "AWS::StackName"
-              },
-              "BucketName"
-            ]
-          ]
+          "Fn::Join": ["-", [{ "Ref": "AWS::StackName" }, "BucketName"]]
         }
       }
     },
     "CloudFrontDistributionId": {
       "Description": "CloudFront distribution ID",
-      "Value": {
-        "Ref": "TodoAppCloudFront"
-      },
+      "Value": { "Ref": "TodoAppCloudFront" },
       "Export": {
         "Name": {
-          "Fn::Join": [
-            "-",
-            [
-              {
-                "Ref": "AWS::StackName"
-              },
-              "DistributionId"
-            ]
-          ]
+          "Fn::Join": ["-", [{ "Ref": "AWS::StackName" }, "DistributionId"]]
         }
       }
     },
@@ -220,15 +156,7 @@
       },
       "Export": {
         "Name": {
-          "Fn::Join": [
-            "-",
-            [
-              {
-                "Ref": "AWS::StackName"
-              },
-              "DomainName"
-            ]
-          ]
+          "Fn::Join": ["-", [{ "Ref": "AWS::StackName" }, "DomainName"]]
         }
       }
     },
@@ -237,25 +165,12 @@
       "Value": {
         "Fn::Join": [
           "",
-          [
-            "https://",
-            {
-              "Fn::GetAtt": ["TodoAppCloudFront", "DomainName"]
-            }
-          ]
+          ["https://", { "Fn::GetAtt": ["TodoAppCloudFront", "DomainName"] }]
         ]
       },
       "Export": {
         "Name": {
-          "Fn::Join": [
-            "-",
-            [
-              {
-                "Ref": "AWS::StackName"
-              },
-              "URL"
-            ]
-          ]
+          "Fn::Join": ["-", [{ "Ref": "AWS::StackName" }, "URL"]]
         }
       }
     }

@@ -7,10 +7,10 @@
           "AppName": { "Ref": "AppName" },
           "Stage": { "Ref": "Stage" },
           "CallbackURL": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
+            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
           },
           "LogoutURL": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.WebsiteURL"]
+            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
           }
         }
       }
