@@ -1,59 +1,70 @@
+# Minimalist TODO App Scaffold
+
+This repository contains a **minimal, reusable scaffolding** for web applications. It is designed to last over a decade with minimal ongoing maintenance, and aims to simplify development by favoring clear, dependency-free patterns using native AWS services.
+
 ---
-type: PROJECT_OVERVIEW
-importance: HIGHEST
-ai_guidance: "Primary entry point for humans and AI. Summarizes project philosophy, structure, and key files."
+
+## 🧠 Project Purpose
+
+This project serves as a boilerplate for building scalable, secure, and highly maintainable web applications using:
+
+- **AWS serverless infrastructure**
+- **Pure frontend code (Vanilla JS/HTML/CSS)**
+- **Zero external dependencies or SDKs**
+
+It is intended as a starting point for future apps, prioritizing long-term durability over short-term productivity hacks.
+
 ---
 
-# 📝 Minimalist TODO Application
+## ⚙️ Architectural Principles
 
-A serverless, dependency-free web application template for longevity and simplicity, built with AWS and vanilla web technologies.
+1. **Zero runtime dependencies**: No frameworks, SDKs, or bundlers.
+2. **CloudFormation-first infrastructure**: All infrastructure defined in explicit JSON templates.
+3. **Direct integration preferred**: Use VTL and native service integrations over Lambda when possible.
+4. **Strict data isolation**: Each user’s data is isolated at every layer.
+5. **Frontend purity**: Vanilla JS with custom micro-utilities for interactivity.
+6. **Extensible by composition**: Small, composable parts rather than monolithic design.
 
-## 🧠 Philosophy
+---
 
-- **Zero Dependencies**: No frameworks, npm, or build tools.
-- **Longevity**: Designed to run 10+ years without maintenance.
-- **Simplicity**: Minimal, human-readable code and infrastructure.
-- **AI-Native**: Structured for AI-assisted development and reasoning.
+## 🤖 AI Pair Programming Expectations
 
-## 📂 Project Highlights
+When used in conjunction with an AI code assistant:
 
-| Area          | Tech                                               |
-| ------------- | -------------------------------------------------- |
-| UI            | Vanilla HTML, CSS, JavaScript                      |
-| Hosting       | S3 + CloudFront                                    |
-| Infra-as-Code | CloudFormation JSON (`main.json`, `frontend.json`) |
-| Config        | Minimal `project-config.js`                        |
-| Deployment    | Bash scripts (`deploy.sh`, `delete-stack.sh`)      |
+- Assume CloudFormation, VTL, and serverless design as default.
+- Do **not** suggest third-party tooling (e.g., CDK, Amplify, SST).
+- Suggest durable, low-maintenance solutions.
+- Avoid introducing complexity unless explicitly requested.
+- Prioritize simple, human-readable code that reflects best practices.
 
-## 📁 Key Files
+Use AI to:
 
-| File/Path                              | Purpose                                         |
-| -------------------------------------- | ----------------------------------------------- |
-| `frontend/index.html`                  | Main HTML entry point                           |
-| `frontend/js/app.js`                   | Core UI and API logic                           |
-| `backend/cloudformation/main.json`     | Main CloudFormation stack                       |
-| `backend/cloudformation/frontend.json` | Frontend infrastructure                         |
-| `project-config.js`                    | Static config (`appName`, `defaultEnvironment`) |
-| `scripts/deploy.sh`                    | Deploys stack and frontend assets               |
-| `scripts/delete-stack.sh`              | Cleans up stack and S3 buckets                  |
+- Help with VTL mappings and IAM permissions
+- Validate CloudFormation template structures
+- Scaffold new backend/frontend features in AWS-native style
+- Challenge architectural decisions where appropriate
 
-## 🚀 Deployment
+---
 
-- **Multi-Account**: Separate AWS accounts for DEV/PROD using AWS SSO.
-- **Stack Naming**: `<appName>-<Environment>` (e.g., `MinimalistTodoStack-DEV`).
-- **Scripts**:
-  - Run `deploy.sh` to package and deploy (`ENVIRONMENT=PROD ./deploy.sh` for PROD).
-  - Run `delete-stack.sh` to clean up (`ENVIRONMENT=PROD ./delete-stack.sh` for PROD).
-- See `GUIDE-DEPLOYMENT.md` for details.
+## 💡 Customization & Iteration
 
-## 🤖 AI Readiness
+This template is intentionally minimal. Additions and modifications should:
 
-- **Metadata**: Files tagged with `type`, `importance`, `ai_guidance`.
-- **Prompts**: See `AI-GUIDE.md` for AI interaction examples.
-- **Constraints**: No frameworks, TypeScript, or non-AWS services.
+- Be implemented as isolated, composable modules
+- Respect boundaries between data, logic, and presentation
+- Avoid tight coupling or unnecessary abstraction
+- Be documented clearly for future developers (including your future self)
 
-## 📚 Documentation
+Examples of where customization is expected:
 
-- `/README/AI-GUIDE.md`: AI reasoning and prompt guide.
-- `/README/GUIDE-DEPLOYMENT.md`: Deployment and script details.
-- `/docs/archive/`: Historical guides (e.g., `GUIDE-ARCHITECTURE.md`).
+- Adding additional DynamoDB indexes or tables
+- Extending API Gateway with more routes
+- Introducing additional user workflows or features
+
+---
+
+## ✅ Status
+
+> Early scaffolding phase. Expect frequent iteration. Stability not guaranteed yet.
+
+If you are reading this with the intent to contribute or replicate, please reach out or open an issue to align on the project's current trajectory.

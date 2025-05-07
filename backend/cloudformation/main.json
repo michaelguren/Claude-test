@@ -9,6 +9,20 @@
         "TemplateURL": "frontend.json",
         "Parameters": {}
       }
+    },
+    "AuthStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "auth.json",
+        "Parameters": {
+          "CallbackURL": {
+            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
+          },
+          "LogoutURL": {
+            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
+          }
+        }
+      }
     }
   },
   "Outputs": {
