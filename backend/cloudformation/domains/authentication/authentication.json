@@ -44,7 +44,6 @@
     "GenerateOtpFunction": {
       "Type": "AWS::Lambda::Function",
       "Properties": {
-        "FunctionName": "GenerateOtpFunction",
         "Runtime": "nodejs22.x",
         "Handler": "index.handler",
         "MemorySize": 128,

@@ -52,25 +52,150 @@ aws cloudformation package \
   --output json \
   --no-paginate >/dev/null 2>&1
 
-echo "Deploying stack $APP_NAME..."
-aws cloudformation deploy \
-  --template-file backend/cloudformation/packaged-template.json \
+echo "Creating change set preview..."
+CHANGE_SET_NAME="preview-$(date +%s)"
+
+# Check if the stack already exists
+if aws cloudformation describe-stacks --stack-name "$APP_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
+  CHANGE_SET_TYPE="UPDATE"
+else
+  CHANGE_SET_TYPE="CREATE"
+fi
+
+aws cloudformation create-change-set \
   --stack-name "$APP_NAME" \
+  --change-set-type "$CHANGE_SET_TYPE" \
+  --template-body file://backend/cloudformation/packaged-template.json \
+  --change-set-name "$CHANGE_SET_NAME" \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
   --region "$AWS_REGION" \
-  --parameter-overrides AppName="$APP_NAME" \
-  --output json > deploy.log 2>&1 || {
-    cat deploy.log
-    echo "Fetching failed stack events..."
-    aws cloudformation describe-stack-events \
-      --stack-name "$APP_NAME" \
-      --region "$AWS_REGION" \
-      --output table \
-      --query "sort_by(StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED'], &Timestamp)[-5:]" \
-      > events.log
-    cat events.log
-    exit 1
-  }
+  --parameters ParameterKey=AppName,ParameterValue="$APP_NAME" \
+  --output text > /dev/null
+
+echo "Waiting for change set to be created..."
+if ! aws cloudformation wait change-set-create-complete \
+  --stack-name "$APP_NAME" \
+  --change-set-name "$CHANGE_SET_NAME" \
+  --region "$AWS_REGION"; then
+  echo "Change set creation failed. Fetching recent failure events..."
+  aws cloudformation describe-stack-events \
+    --stack-name "$APP_NAME" \
+    --region "$AWS_REGION" \
+    --query "sort_by(StackEvents[?contains(ResourceStatus, 'FAILED')], &Timestamp)[-10:]" \
+    --output table > deploy-events.log
+
+  if command -v pbcopy >/dev/null 2>&1; then
+    cat deploy-events.log | pbcopy
+    echo "❌ Events copied to clipboard (deploy-events.log)"
+  else
+    echo "❌ Events logged to deploy-events.log"
+  fi
+
+  exit 1
+fi
+
+echo "Proposed changes:"
+aws cloudformation describe-change-set \
+  --stack-name "$APP_NAME" \
+  --change-set-name "$CHANGE_SET_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Changes[*].ResourceChange.{Action:Action,LogicalResourceId:LogicalResourceId,ResourceType:ResourceType}' \
+  --output table
+
+read -p "Continue with deployment? (y/N): " CONFIRM
+if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+  echo "Aborting deployment. Deleting change set..."
+  aws cloudformation delete-change-set \
+    --stack-name "$APP_NAME" \
+    --change-set-name "$CHANGE_SET_NAME" \
+    --region "$AWS_REGION"
+  exit 0
+fi
+
+echo "Executing change set..."
+if ! aws cloudformation execute-change-set \
+  --stack-name "$APP_NAME" \
+  --change-set-name "$CHANGE_SET_NAME" \
+  --region "$AWS_REGION"; then
+  echo "Deployment execution failed. Fetching recent failure events..."
+  aws cloudformation describe-stack-events \
+    --stack-name "$APP_NAME" \
+    --region "$AWS_REGION" \
+    --query "sort_by(StackEvents[?contains(ResourceStatus, 'FAILED')], &Timestamp)[-10:]" \
+    --output table > deploy-events.log
+
+  if command -v pbcopy >/dev/null 2>&1; then
+    cat deploy-events.log | pbcopy
+    echo "❌ Events copied to clipboard (deploy-events.log)"
+  else
+    echo "❌ Events logged to deploy-events.log"
+  fi
+
+  exit 1
+fi
+
+echo "Executing change set..."
+if ! aws cloudformation execute-change-set \
+  --stack-name "$APP_NAME" \
+  --change-set-name "$CHANGE_SET_NAME" \
+  --region "$AWS_REGION"; then
+  echo "Execution failed."
+  # (optional: handle failure here)
+  exit 1
+fi
+
+# 🌀 Insert this spinner block
+SPINNER=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+i=0
+start_time=$(date +%s)
+
+echo -n "Deploying..."
+
+while true; do
+  STATUS=$(aws cloudformation describe-stacks \
+    --stack-name "$APP_NAME" \
+    --region "$AWS_REGION" \
+    --query "Stacks[0].StackStatus" \
+    --output text 2>/dev/null)
+
+  elapsed=$(( $(date +%s) - start_time ))
+  mins=$((elapsed / 60))
+  secs=$((elapsed % 60))
+  time_str=$(printf "%02d:%02d" $mins $secs)
+
+  case "$STATUS" in
+    CREATE_COMPLETE|UPDATE_COMPLETE)
+      printf "\r✅ [$time_str] Done: $STATUS\n"
+      break
+      ;;
+    ROLLBACK_COMPLETE|UPDATE_ROLLBACK_COMPLETE)
+      printf "\r❌ [$time_str] Stack failed: $STATUS — rolling back completed\n"
+
+      aws cloudformation describe-stack-events \
+        --stack-name "$APP_NAME" \
+        --region "$AWS_REGION" \
+        --query "sort_by(StackEvents[?contains(ResourceStatus, 'FAILED')], &Timestamp)[-10:]" \
+        --output table > deploy-events.log
+
+      if command -v pbcopy >/dev/null 2>&1; then
+        cat deploy-events.log | pbcopy
+        echo "Copied failure events to clipboard (deploy-events.log)"
+      fi
+
+      exit 1
+      ;;
+    CREATE_FAILED|ROLLBACK_FAILED|UPDATE_ROLLBACK_FAILED)
+      printf "\r❌ [$time_str] Hard failure: $STATUS\n"
+      exit 1
+      ;;
+    *)
+      printf "\r${SPINNER[i++ % ${#SPINNER[@]}]} [$time_str] Status: $STATUS"
+      sleep 2
+      ;;
+  esac
+done
+
+echo "Deployment complete!"
 
 echo "Uploading frontend assets..."
 aws s3 sync ./frontend/ "s3://$FRONTEND_BUCKET_NAME/" --delete --region "$AWS_REGION" --no-paginate >/dev/null 2>&1

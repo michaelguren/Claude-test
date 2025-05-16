@@ -1,10 +1,10 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "HTTP API Gateway integrating /register with Step Function using best practices",
+  "Description": "Minimalist TODO Application - HTTP API to Step Functions Integration",
   "Parameters": {
     "RegisterStateMachineArn": {
       "Type": "String",
-      "Description": "ARN of the RegisterUser Step Function"
+      "Description": "ARN of the Step Functions state machine triggered by POST /register"
     }
   },
   "Resources": {
@@ -12,15 +12,10 @@
       "Type": "AWS::ApiGatewayV2::Api",
       "Properties": {
         "Name": "MinimalistTodoHttpApi",
-        "ProtocolType": "HTTP",
-        "CorsConfiguration": {
-          "AllowMethods": ["POST"],
-          "AllowOrigins": ["*"],
-          "AllowHeaders": ["*"]
-        }
+        "ProtocolType": "HTTP"
       }
     },
-    "ApiGatewayStepFunctionRole": {
+    "HttpApiStepFunctionsRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -37,16 +32,14 @@
         },
         "Policies": [
           {
-            "PolicyName": "InvokeStepFunctionFromAPIGateway",
+            "PolicyName": "AllowStepFunctionExecution",
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": ["states:StartExecution"],
-                  "Resource": {
-                    "Ref": "RegisterStateMachineArn"
-                  }
+                  "Action": "states:StartExecution",
+                  "Resource": { "Ref": "RegisterStateMachineArn" }
                 }
               ]
             }
@@ -57,19 +50,13 @@
     "RegisterIntegration": {
       "Type": "AWS::ApiGatewayV2::Integration",
       "Properties": {
-        "ApiId": {
-          "Ref": "HttpApi"
-        },
+        "ApiId": { "Ref": "HttpApi" },
         "IntegrationType": "AWS_PROXY",
         "IntegrationSubtype": "StepFunctions-StartExecution",
-        "CredentialsArn": {
-          "Fn::GetAtt": ["ApiGatewayStepFunctionRole", "Arn"]
-        },
+        "CredentialsArn": { "Fn::GetAtt": ["HttpApiStepFunctionsRole", "Arn"] },
         "RequestParameters": {
           "Input": "$request.body",
-          "StateMachineArn": {
-            "Ref": "RegisterStateMachineArn"
-          }
+          "StateMachineArn": { "Ref": "RegisterStateMachineArn" }
         },
         "PayloadFormatVersion": "1.0",
         "TimeoutInMillis": 10000
@@ -78,31 +65,27 @@
     "RegisterRoute": {
       "Type": "AWS::ApiGatewayV2::Route",
       "Properties": {
-        "ApiId": {
-          "Ref": "HttpApi"
-        },
+        "ApiId": { "Ref": "HttpApi" },
         "RouteKey": "POST /register",
         "Target": {
-          "Fn::Sub": "integrations/${RegisterIntegration}"
+          "Fn::Join": ["/", ["integrations", { "Ref": "RegisterIntegration" }]]
         }
       }
     },
     "HttpApiStage": {
       "Type": "AWS::ApiGatewayV2::Stage",
       "Properties": {
-        "ApiId": {
-          "Ref": "HttpApi"
-        },
+        "ApiId": { "Ref": "HttpApi" },
         "StageName": "$default",
         "AutoDeploy": true
       }
     }
   },
   "Outputs": {
-    "RegisterEndpoint": {
-      "Description": "POST /register endpoint",
+    "HttpApiUrl": {
+      "Description": "HTTP API default endpoint",
       "Value": {
-        "Fn::Sub": "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/register"
+        "Fn::Sub": "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
       }
     }
   }

@@ -10,13 +10,19 @@
         "FrontendStack": {
             "Type": "AWS::CloudFormation::Stack",
             "Properties": {
-                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimal-todo-templates-550398958311/96ed727398cbc4ffd3902679e24133ff.template"
+                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimal-todo-templates-550398958311/73c92e8f7762fa5bb506125c2e3a55d8.template"
+            }
+        },
+        "ApiStack": {
+            "Type": "AWS::CloudFormation::Stack",
+            "Properties": {
+                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimal-todo-templates-550398958311/1f420a93929d2b868f12c69aebf5b6d0.template"
             }
         },
         "AuthenticationStack": {
             "Type": "AWS::CloudFormation::Stack",
             "Properties": {
-                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimal-todo-templates-550398958311/6d859d35737503b2da3fb3781737cfad.template"
+                "TemplateURL": "https://s3.us-east-1.amazonaws.com/minimal-todo-templates-550398958311/fd701129104699b60f01ff8c9dc13bf2.template"
             }
         }
     },
