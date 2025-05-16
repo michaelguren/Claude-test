@@ -1,0 +1,183 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Authentication domain stack including OTP Lambda, RegisterUser Step Function, and AuthUsers table.",
+  "Resources": {
+    "AuthUsersTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": "AuthUsers",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST"
+      }
+    },
+    "GenerateOtpExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ]
+      }
+    },
+    "GenerateOtpFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "GenerateOtpFunction",
+        "Runtime": "nodejs22.x",
+        "Handler": "index.handler",
+        "MemorySize": 128,
+        "Timeout": 3,
+        "Role": {
+          "Fn::GetAtt": ["GenerateOtpExecutionRole", "Arn"]
+        },
+        "Code": "backend/cloudformation/domains/authentication/generate-otp.js"
+      }
+    },
+    "RegisterStepFunctionExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "states.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "RegisterStepFunctionPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": ["logs:*"],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["dynamodb:GetItem"],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": ["lambda:InvokeFunction"],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "RegisterUserStateMachine": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "StateMachineName": "RegisterUserStateMachine",
+        "RoleArn": {
+          "Fn::GetAtt": ["RegisterStepFunctionExecutionRole", "Arn"]
+        },
+        "Definition": {
+          "StartAt": "CheckUserExists",
+          "States": {
+            "CheckUserExists": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:dynamodb:getItem",
+              "Parameters": {
+                "TableName": "AuthUsers",
+                "Key": {
+                  "pk": {
+                    "S.$": "States.Format('user#{}', $.phone_number)"
+                  }
+                }
+              },
+              "ResultPath": "$.userLookup",
+              "Next": "UserExists?"
+            },
+            "UserExists?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.userLookup.Item",
+                  "IsPresent": true,
+                  "Next": "Abort_UserExists"
+                }
+              ],
+              "Default": "GenerateOTP"
+            },
+            "Abort_UserExists": {
+              "Type": "Fail",
+              "Error": "UserAlreadyExists",
+              "Cause": "A user with this phone number already exists."
+            },
+            "GenerateOTP": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "GenerateOtpFunction",
+                "Payload": {
+                  "Input.$": "$"
+                }
+              },
+              "ResultPath": "$.otpResult",
+              "Next": "SendOTP"
+            },
+            "SendOTP": {
+              "Type": "Pass",
+              "Result": "OTP sent (placeholder)",
+              "ResultPath": "$.smsResult",
+              "Next": "Success"
+            },
+            "Success": {
+              "Type": "Pass",
+              "Result": "User registration completed",
+              "ResultPath": "$.status",
+              "End": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "RegisterStateMachineArn": {
+      "Description": "ARN of the RegisterUser Step Function",
+      "Value": {
+        "Ref": "RegisterUserStateMachine"
+      }
+    },
+    "GenerateOtpFunctionArn": {
+      "Description": "ARN of the GenerateOtp Lambda",
+      "Value": {
+        "Fn::GetAtt": ["GenerateOtpFunction", "Arn"]
+      }
+    }
+  }
+}

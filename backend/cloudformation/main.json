@@ -1,27 +1,22 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Minimalist TODO Application - Main Stack",
-  "Parameters": {},
+  "Parameters": {
+    "AppName": {
+      "Type": "String"
+    }
+  },
   "Resources": {
     "FrontendStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": "frontend.json",
-        "Parameters": {}
+        "TemplateURL": "domains/frontend/frontend.json"
       }
     },
-    "AuthStack": {
+    "AuthenticationStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": "auth.json",
-        "Parameters": {
-          "CallbackURL": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
-          },
-          "LogoutURL": {
-            "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"]
-          }
-        }
+        "TemplateURL": "domains/authentication/authentication.json"
       }
     }
   },

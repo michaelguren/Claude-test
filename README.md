@@ -46,6 +46,34 @@ Use AI to:
 
 ---
 
+## 🚀 Auth Architecture Overview (as of May 2025)
+
+This scaffold includes a custom user authentication system built from first principles using:
+
+- **AWS HTTP API Gateway** — clean, single-stage URLs
+- **AWS Step Functions** — orchestrates the full registration and verification workflow
+- **DynamoDB** — stores normalized user records (phone-first, email optional)
+- **Amazon SNS** — used for SMS-based OTP delivery
+- **Optional passkey (WebAuthn) support** — planned for secure, passwordless login
+
+We intentionally avoid AWS Cognito to simplify customization, control, and long-term maintainability.
+
+---
+
+## 🔄 File Upload + Collaboration Guidance
+
+When collaborating with AI or CI tools:
+
+- Use `git archive` or `git ls-files` to produce clean `.zip` files
+- This ensures no `.git/`, `node_modules/`, `.DS_Store`, or other non-source files are included
+- Example:
+
+```bash
+git archive --format=zip --output=../minimalist-todo.zip HEAD
+```
+
+- Forget all prior project files and ZIPs. Only use the ZIP I’m uploading now.
+
 ## 💡 Customization & Iteration
 
 This template is intentionally minimal. Additions and modifications should:

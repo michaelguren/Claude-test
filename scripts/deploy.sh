@@ -12,31 +12,34 @@ if ! aws sts get-caller-identity >/dev/null 2>&1; then
   fi
 fi
 
-CONFIG_FILE="project-config.js"
-APP_NAME=$(node -e "console.log(require('./$CONFIG_FILE').appName)" 2>/dev/null)
-STACK_NAME="$APP_NAME"
+
+APP_NAME="minimal-todo"
+AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-paginate 2>/dev/null)
-TEMPLATE_BUCKET="minimalist-todo-templates-${AWS_ACCOUNT_ID}"
-REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+FRONTEND_BUCKET_NAME="${APP_NAME}-frontend-${AWS_ACCOUNT_ID}"
+TEMPLATE_BUCKET="${APP_NAME}-templates-${AWS_ACCOUNT_ID}"
 
 # Validate parameters
 echo "Validating parameters..."
 if [ -z "$APP_NAME" ]; then
-  echo "Error: AppName must be set in $CONFIG_FILE"
+  echo "Error: APP_NAME must be set"
   exit 1
 fi
 
-# Validate CloudFormation templates
-echo "Validating templates..."
-aws cloudformation validate-template --template-body file://backend/cloudformation/main.json --region "$REGION" --no-paginate >/dev/null 2>&1
-aws cloudformation validate-template --template-body file://backend/cloudformation/frontend.json --region "$REGION" --no-paginate >/dev/null 2>&1
-aws cloudformation validate-template --template-body file://backend/cloudformation/auth.json --region "$REGION" --no-paginate >/dev/null 2>&1
+# Dynamically validate all JSON CloudFormation templates in the folder
+find backend/cloudformation -type f -name "*.json" | while read -r template; do
+  echo "Validating $template..."
+  if ! aws cloudformation validate-template --template-body file://"$template" --region "$AWS_REGION" --no-paginate >/dev/null 2>&1; then
+    echo "Error: Validation failed for $template"
+    exit 1
+  fi
+done
 
 # Check or create template bucket
 echo "Checking template bucket..."
-if ! aws s3 ls "s3://$TEMPLATE_BUCKET" --region "$REGION" --no-paginate >/dev/null 2>&1; then
+if ! aws s3 ls "s3://$TEMPLATE_BUCKET" --region "$AWS_REGION" --no-paginate >/dev/null 2>&1; then
   echo "Creating template bucket $TEMPLATE_BUCKET..."
-  aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$REGION" --no-paginate >/dev/null 2>&1
+  aws s3 mb "s3://$TEMPLATE_BUCKET" --region "$AWS_REGION" --no-paginate >/dev/null 2>&1
 fi
 
 echo "Packaging templates..."
@@ -44,36 +47,37 @@ aws cloudformation package \
   --template-file backend/cloudformation/main.json \
   --s3-bucket "$TEMPLATE_BUCKET" \
   --output-template-file backend/cloudformation/packaged-template.json \
-  --region "$REGION" \
+  --region "$AWS_REGION" \
   --use-json \
   --output json \
   --no-paginate >/dev/null 2>&1
 
-echo "Deploying stack $STACK_NAME..."
+echo "Deploying stack $APP_NAME..."
 aws cloudformation deploy \
   --template-file backend/cloudformation/packaged-template.json \
-  --stack-name "$STACK_NAME" \
+  --stack-name "$APP_NAME" \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-  --region "$REGION" \
+  --region "$AWS_REGION" \
+  --parameter-overrides AppName="$APP_NAME" \
   --output json > deploy.log 2>&1 || {
     cat deploy.log
     echo "Fetching failed stack events..."
     aws cloudformation describe-stack-events \
-      --stack-name "$STACK_NAME" \
-      --region "$REGION" \
-      --output json \
-      --query 'StackEvents[?contains(ResourceStatus,`FAILED`)].[Timestamp,ResourceType,ResourceStatus,ResourceStatusReason]' \
+      --stack-name "$APP_NAME" \
+      --region "$AWS_REGION" \
+      --output table \
+      --query "sort_by(StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED'], &Timestamp)[-5:]" \
       > events.log
     cat events.log
     exit 1
   }
 
 echo "Uploading frontend assets..."
-aws s3 sync ./frontend/ "s3://minimalist-todo-${AWS_ACCOUNT_ID}/" --delete --region "$REGION" --no-paginate >/dev/null 2>&1
+aws s3 sync ./frontend/ "s3://$FRONTEND_BUCKET_NAME/" --delete --region "$AWS_REGION" --no-paginate >/dev/null 2>&1
 
 # Echo Application URL
 echo "Fetching Application URL..."
-APP_URL=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].Outputs[?OutputKey==`ApplicationURL`].OutputValue' --output text --region "$REGION" --no-paginate 2>/dev/null)
+APP_URL=$(aws cloudformation describe-stacks --stack-name "$APP_NAME" --query 'Stacks[0].Outputs[?OutputKey==`ApplicationURL`].OutputValue' --output text --region "$AWS_REGION" --no-paginate 2>/dev/null)
 echo "Application URL: $APP_URL"
 
 echo "Cleaning up..."

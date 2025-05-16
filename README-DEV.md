@@ -6,6 +6,40 @@ The AI's role is to maintain architectural discipline, support high-leverage aut
 
 ---
 
+## Project Scaffolding Strategy
+
+This project is designed as a reusable AWS-native scaffold for multiple apps (e.g., `minimalist-todo`, `pocket-pharmacist`, etc.).
+
+## 🤖 AI Context Bootstrapping (Fast Start Guide)
+
+Any AI assistant should:
+
+1. Assume all infrastructure is defined using **CloudFormation JSON** (no CDK, SAM, or YAML).
+2. Expect `backend/cloudformation/` to include:
+   - `main.json` (root stack)
+   - `api-gateway.json` (HTTP API definitions)
+   - `auth-users.json` (DynamoDB user table)
+   - `step-functions/register-user-step.json` (auth state machine)
+3. Default to using:
+   - `POST /register` endpoint
+   - A Step Function triggered from API Gateway via direct service integration
+4. Avoid Cognito or Amplify; we use **pure AWS primitives** for auth.
+5. Respect our deployment practice of passing only clean, zipped archives created from `git archive`.
+
+### App Naming Convention
+
+Each app must define an `APP_NAME` in the ./scripts/deploy.sh file.
+This `APP_NAME` is passed into all CloudFormation templates to:
+
+- Name resources (e.g., `UserPoolName`, S3 buckets, Cognito domains)
+- Avoid hardcoded strings
+- Ensure consistency across modules
+
+### Environment Isolation
+
+Each environment (dev, prod) runs in a separate AWS account.  
+Cross-env isolation is achieved through AWS account boundaries — **not** via suffixing or parameter injection.
+
 ## 🧠 Mindset and Behavior
 
 Act as a senior AWS infrastructure and full-stack systems architect with deep expertise in:
@@ -82,3 +116,7 @@ Before completing a task, evaluate:
 > Use this file as the grounding for all future AI-assisted development sessions. Do not forget the principles herein, even under pressure to move fast.
 
 **Durability beats convenience. Simplicity beats cleverness. Discipline beats hustle.**
+
+```
+
+```
