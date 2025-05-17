@@ -36,19 +36,13 @@
     }
   },
   "Outputs": {
-    "ApplicationURL": {
+    "FrontendURL": {
       "Description": "URL of the website",
-      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.ApplicationURL"] }
+      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendURL"] }
     },
-    "S3BucketName": {
+    "FrontendBucketName": {
       "Description": "S3 bucket name for static website files",
-      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.S3BucketName"] }
-    },
-    "CloudFrontDistributionId": {
-      "Description": "CloudFront distribution ID",
-      "Value": {
-        "Fn::GetAtt": ["FrontendStack", "Outputs.CloudFrontDistributionId"]
-      }
+      "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendBucketName"] }
     }
   }
 }

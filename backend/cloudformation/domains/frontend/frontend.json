@@ -5,19 +5,22 @@
     "FrontendBucket": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
-        "AccessControl": "PublicRead",
         "WebsiteConfiguration": {
           "IndexDocument": "index.html",
           "ErrorDocument": "index.html"
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": false,
+          "RestrictPublicBuckets": false
         }
       }
     },
     "FrontendBucketPolicy": {
       "Type": "AWS::S3::BucketPolicy",
       "Properties": {
-        "Bucket": {
-          "Ref": "FrontendBucket"
-        },
+        "Bucket": { "Ref": "FrontendBucket" },
         "PolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
