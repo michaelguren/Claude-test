@@ -1,6 +1,22 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Simple S3 website hosting for frontend (no CloudFront, optimized for dev/prototype)",
+  "Description": "Minimal frontend stack: public S3 for dev, CloudFront+OAC for stage/prod",
+
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "stage", "prod"],
+      "Description": "Deployment environment"
+    }
+  },
+
+  "Conditions": {
+    "UseCloudFront": {
+      "Fn::Not": [{ "Fn::Equals": [{ "Ref": "Environment" }, "dev"] }]
+    }
+  },
+
   "Resources": {
     "FrontendBucket": {
       "Type": "AWS::S3::Bucket",
@@ -12,11 +28,12 @@
         "PublicAccessBlockConfiguration": {
           "BlockPublicAcls": true,
           "IgnorePublicAcls": true,
-          "BlockPublicPolicy": false,
-          "RestrictPublicBuckets": false
+          "BlockPublicPolicy": { "Fn::If": ["UseCloudFront", true, false] },
+          "RestrictPublicBuckets": { "Fn::If": ["UseCloudFront", true, false] }
         }
       }
     },
+
     "FrontendBucketPolicy": {
       "Type": "AWS::S3::BucketPolicy",
       "Properties": {
@@ -26,28 +43,105 @@
           "Statement": [
             {
               "Effect": "Allow",
-              "Principal": "*",
-              "Action": ["s3:GetObject"],
+              "Principal": {
+                "Fn::If": [
+                  "UseCloudFront",
+                  { "Service": "cloudfront.amazonaws.com" },
+                  "*"
+                ]
+              },
+              "Action": "s3:GetObject",
               "Resource": {
                 "Fn::Sub": "arn:aws:s3:::${FrontendBucket}/*"
+              },
+              "Condition": {
+                "Fn::If": [
+                  "UseCloudFront",
+                  {
+                    "StringEquals": {
+                      "AWS:SourceArn": {
+                        "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+                      }
+                    }
+                  },
+                  { "Ref": "AWS::NoValue" }
+                ]
               }
             }
           ]
         }
       }
+    },
+
+    "CloudFrontOAC": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Condition": "UseCloudFront",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": "FrontendOAC",
+          "SigningBehavior": "always",
+          "SigningProtocol": "sigv4",
+          "OriginAccessControlOriginType": "s3"
+        }
+      }
+    },
+
+    "CloudFrontDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Condition": "UseCloudFront",
+      "Properties": {
+        "DistributionConfig": {
+          "Enabled": true,
+          "DefaultRootObject": "index.html",
+          "Origins": [
+            {
+              "Id": "S3Origin",
+              "DomainName": {
+                "Fn::Sub": "${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
+              },
+              "CustomOriginConfig": {
+                "HTTPPort": 80,
+                "HTTPSPort": 443,
+                "OriginProtocolPolicy": "http-only"
+              },
+              "OriginAccessControlId": {
+                "Fn::GetAtt": ["CloudFrontOAC", "Id"]
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "S3Origin",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": ["GET", "HEAD"],
+            "CachedMethods": ["GET", "HEAD"],
+            "ForwardedValues": {
+              "QueryString": false,
+              "Cookies": { "Forward": "none" }
+            }
+          },
+          "ViewerCertificate": {
+            "CloudFrontDefaultCertificate": true
+          }
+        }
+      }
     }
   },
+
   "Outputs": {
     "FrontendURL": {
-      "Description": "Public URL for the S3 website",
+      "Description": "Public frontend URL (CloudFront or S3 depending on environment)",
       "Value": {
-        "Fn::Sub": "http://${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
+        "Fn::If": [
+          "UseCloudFront",
+          { "Fn::Sub": "https://${CloudFrontDistribution.DomainName}" },
+          {
+            "Fn::Sub": "http://${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"
+          }
+        ]
       }
     },
     "FrontendBucketName": {
-      "Value": {
-        "Ref": "FrontendBucket"
-      }
+      "Value": { "Ref": "FrontendBucket" }
     }
   }
 }

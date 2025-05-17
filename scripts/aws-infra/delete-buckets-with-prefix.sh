@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Prompt for S3 bucket name prefix
 read -p "Enter S3 bucket name prefix: " BUCKET_PREFIX

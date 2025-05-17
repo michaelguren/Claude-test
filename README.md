@@ -60,6 +60,10 @@ We intentionally avoid AWS Cognito to simplify customization, control, and long-
 
 ---
 
+## bash file
+
+- chmod +x <filename>.sh
+
 ## 🔄 File Upload + Collaboration Guidance
 
 When collaborating with AI or CI tools:

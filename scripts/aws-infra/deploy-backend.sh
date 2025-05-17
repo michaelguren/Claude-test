@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Check if AWS SSO is configured and prompt login if not signed in
 echo "Checking AWS SSO session..."
@@ -13,8 +13,6 @@ if ! aws sts get-caller-identity >/dev/null 2>&1; then
 fi
 
 
-APP_NAME="minimal-todo"
-AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-paginate 2>/dev/null)
 FRONTEND_BUCKET_NAME="${APP_NAME}-frontend-${AWS_ACCOUNT_ID}"
 TEMPLATE_BUCKET="${APP_NAME}-templates-${AWS_ACCOUNT_ID}"
@@ -99,7 +97,7 @@ aws cloudformation describe-change-set \
   --stack-name "$APP_NAME" \
   --change-set-name "$CHANGE_SET_NAME" \
   --region "$AWS_REGION" \
-  --query 'Changes[*].ResourceChange.{Action:Action,LogicalResourceId:LogicalResourceId,ResourceType:ResourceType}' \
+  --query 'Changes[*].ResourceChange' \
   --output table
 
 read -p "Continue with deployment? (y/N): " CONFIRM
@@ -180,31 +178,16 @@ while true; do
       ;;
     *)
       printf "\r${SPINNER[i++ % ${#SPINNER[@]}]} [$time_str] Status: $STATUS"
-      sleep 2
       ;;
   esac
 done
 
 echo "Deployment complete!"
 
-echo "Fetching deployed frontend bucket name..."
-FRONTEND_BUCKET_NAME=$(aws cloudformation describe-stacks \
-  --stack-name "$APP_NAME" \
-  --region "$AWS_REGION" \
-  --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
-  --output text --no-paginate 2>/dev/null)
-
-if [ -z "$FRONTEND_BUCKET_NAME" ]; then
-  echo "⚠️ Could not determine frontend bucket name from stack outputs. Skipping asset upload."
-else
-  echo "Uploading frontend assets to bucket: $FRONTEND_BUCKET_NAME"
-  aws s3 sync ./frontend/ "s3://$FRONTEND_BUCKET_NAME/" --delete --region "$AWS_REGION" --no-paginate >/dev/null 2>&1
-fi
-
 # Echo Application URL
 echo "Fetching Application URL..."
-APP_URL=$(aws cloudformation describe-stacks --stack-name "$APP_NAME" --query 'Stacks[0].Outputs[?OutputKey==`ApplicationURL`].OutputValue' --output text --region "$AWS_REGION" --no-paginate 2>/dev/null)
-echo "Application URL: $APP_URL"
+FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name "$APP_NAME" --query 'Stacks[0].Outputs[?OutputKey==`FrontendURL`].OutputValue' --output text --region "$AWS_REGION" --no-paginate 2>/dev/null)
+echo "FrontEnd URL: $FRONTEND_URL"
 
 echo "Cleaning up..."
 rm -f backend/cloudformation/packaged-template.json

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 STACK_NAME="$1"
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"

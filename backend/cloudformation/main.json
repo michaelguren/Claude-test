@@ -4,13 +4,22 @@
   "Parameters": {
     "AppName": {
       "Type": "String"
+    },
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "stage", "prod"],
+      "Description": "Environment name passed to nested stacks"
     }
   },
   "Resources": {
     "FrontendStack": {
       "Type": "AWS::CloudFormation::Stack",
       "Properties": {
-        "TemplateURL": "domains/frontend/frontend.json"
+        "TemplateURL": "domains/frontend/frontend.json",
+        "Parameters": {
+          "Environment": { "Ref": "Environment" }
+        }
       }
     },
     "ApiStack": {
@@ -36,6 +45,9 @@
     }
   },
   "Outputs": {
+    "Environment": {
+      "Value": { "Ref": "Environment" }
+    },
     "FrontendURL": {
       "Description": "URL of the website",
       "Value": { "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendURL"] }
