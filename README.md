@@ -31,8 +31,8 @@ It is intended as a starting point for future apps, prioritizing long-term durab
 
 When used in conjunction with an AI code assistant:
 
-- Assume CloudFormation, VTL, and serverless design as default.
-- Do **not** suggest third-party tooling (e.g., CDK, Amplify, SST).
+- Assume AWS SAM, VTL, and serverless design as default.
+- Do **not** suggest any other third-party tooling (e.g., CDK, Amplify, SST).
 - Suggest durable, low-maintenance solutions.
 - Avoid introducing complexity unless explicitly requested.
 - Prioritize simple, human-readable code that reflects best practices.
@@ -40,7 +40,7 @@ When used in conjunction with an AI code assistant:
 Use AI to:
 
 - Help with VTL mappings and IAM permissions
-- Validate CloudFormation template structures
+- Validate CloudFormation and AWS SAM template structures
 - Scaffold new backend/frontend features in AWS-native style
 - Challenge architectural decisions where appropriate
 
@@ -56,7 +56,7 @@ This scaffold includes a custom user authentication system built from first prin
 - **Amazon SNS** — used for SMS-based OTP delivery
 - **Optional passkey (WebAuthn) support** — planned for secure, passwordless login
 
-We intentionally avoid AWS Cognito to simplify customization, control, and long-term maintainability.
+We intentionally avoid AWS Cognito to simplify customization, control, and long-term maintainability. Rather, we are rolling our own authentication taking inspiration from: https://firtman.github.io/authentication/.
 
 ---
 

@@ -1,15 +1,35 @@
-exports.handler = async (event) => {
-  const min = event?.min ?? 0;
-  const max = event?.max ?? 999999;
+const crypto = require("crypto");
 
-  const randomNumber = Math.floor(Math.random() * (max - min + 1)) + min;
-  const formatted = randomNumber.toString().padStart(6, "0");
+function generateOtpCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
+}
+
+function createExpiry(minutes = 5) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + minutes * 60 * 1000);
+  return {
+    expires: expiresAt.toISOString(),
+    ttl: Math.floor(expiresAt.getTime() / 1000),
+  };
+}
+
+exports.handler = async (event) => {
+  console.log("Received event:", JSON.stringify(event));
+
+  const { phone_number } = event;
+
+  if (!phone_number) {
+    throw new Error("Missing phone number");
+  }
+
+  const uuid = crypto.randomUUID();
+  const code = generateOtpCode();
+  const { expires, ttl } = createExpiry();
 
   return {
-    statusCode: 200,
-    body: {
-      random: randomNumber,
-      formatted,
-    },
+    uuid,
+    code,
+    expires,
+    ttl,
   };
 };

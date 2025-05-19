@@ -97,7 +97,7 @@ aws cloudformation describe-change-set \
   --stack-name "$APP_NAME" \
   --change-set-name "$CHANGE_SET_NAME" \
   --region "$AWS_REGION" \
-  --query 'Changes[*].ResourceChange' \
+  --query 'Changes[*].ResourceChange.{Action:Action,LogicalId:LogicalResourceId,Type:ResourceType}' \
   --output table
 
 read -p "Continue with deployment? (y/N): " CONFIRM
@@ -188,6 +188,11 @@ echo "Deployment complete!"
 echo "Fetching Application URL..."
 FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name "$APP_NAME" --query 'Stacks[0].Outputs[?OutputKey==`FrontendURL`].OutputValue' --output text --region "$AWS_REGION" --no-paginate 2>/dev/null)
 echo "FrontEnd URL: $FRONTEND_URL"
+
+# Echo HttpApi URL
+echo "Fetching HttpApi URL..."
+API_URL=$(aws cloudformation describe-stacks --stack-name "$APP_NAME" --query 'Stacks[0].Outputs[?OutputKey==`HttpApiUrl`].OutputValue' --output text --region "$AWS_REGION" --no-paginate 2>/dev/null)
+echo "HttpApi URL: $API_URL"
 
 echo "Cleaning up..."
 rm -f backend/cloudformation/packaged-template.json

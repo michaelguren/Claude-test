@@ -5,20 +5,19 @@
     "AuthUsersTable": {
       "Type": "AWS::DynamoDB::Table",
       "Properties": {
-        "TableName": "AuthUsers",
+        "BillingMode": "PAY_PER_REQUEST",
         "AttributeDefinitions": [
-          {
-            "AttributeName": "pk",
-            "AttributeType": "S"
-          }
+          { "AttributeName": "pk", "AttributeType": "S" },
+          { "AttributeName": "sk", "AttributeType": "S" }
         ],
         "KeySchema": [
-          {
-            "AttributeName": "pk",
-            "KeyType": "HASH"
-          }
+          { "AttributeName": "pk", "KeyType": "HASH" },
+          { "AttributeName": "sk", "KeyType": "RANGE" }
         ],
-        "BillingMode": "PAY_PER_REQUEST"
+        "TimeToLiveSpecification": {
+          "Enabled": true,
+          "AttributeName": "ttl"
+        }
       }
     },
     "GenerateOtpExecutionRole": {
@@ -45,7 +44,7 @@
       "Type": "AWS::Lambda::Function",
       "Properties": {
         "Runtime": "nodejs22.x",
-        "Handler": "index.handler",
+        "Handler": "generate-otp.handler",
         "MemorySize": 128,
         "Timeout": 3,
         "Role": {
@@ -82,12 +81,21 @@
                 },
                 {
                   "Effect": "Allow",
-                  "Action": ["dynamodb:GetItem"],
-                  "Resource": "*"
+                  "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
+                  "Resource": {
+                    "Fn::GetAtt": ["AuthUsersTable", "Arn"]
+                  }
                 },
                 {
                   "Effect": "Allow",
                   "Action": ["lambda:InvokeFunction"],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${GenerateOtpFunction}*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": "sns:Publish",
                   "Resource": "*"
                 }
               ]
@@ -99,7 +107,6 @@
     "RegisterUserStateMachine": {
       "Type": "AWS::StepFunctions::StateMachine",
       "Properties": {
-        "StateMachineName": "RegisterUserStateMachine",
         "RoleArn": {
           "Fn::GetAtt": ["RegisterStepFunctionExecutionRole", "Arn"]
         },
@@ -110,10 +117,13 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::aws-sdk:dynamodb:getItem",
               "Parameters": {
-                "TableName": "AuthUsers",
+                "TableName": { "Ref": "AuthUsersTable" },
                 "Key": {
                   "pk": {
                     "S.$": "States.Format('user#{}', $.phone_number)"
+                  },
+                  "sk": {
+                    "S": "PROFILE"
                   }
                 }
               },
@@ -129,28 +139,56 @@
                   "Next": "Abort_UserExists"
                 }
               ],
-              "Default": "GenerateOTP"
+              "Default": "PutUserRecord"
             },
             "Abort_UserExists": {
               "Type": "Fail",
               "Error": "UserAlreadyExists",
               "Cause": "A user with this phone number already exists."
             },
+            "PutUserRecord": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:dynamodb:putItem",
+              "Parameters": {
+                "TableName": { "Ref": "AuthUsersTable" },
+                "Item": {
+                  "pk": {
+                    "S.$": "States.Format('user#{}', $.phone_number)"
+                  },
+                  "sk": { "S": "PROFILE" },
+                  "phone_number": { "S.$": "$.phone_number" },
+                  "created": { "S.$": "$$.State.EnteredTime" }
+                }
+              },
+              "Next": "GenerateOTP"
+            },
             "GenerateOTP": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
-                "FunctionName": "GenerateOtpFunction",
+                "FunctionName": {
+                  "Ref": "GenerateOtpFunction"
+                },
                 "Payload": {
-                  "Input.$": "$"
+                  "phone_number.$": "$.phone_number"
                 }
               },
               "ResultPath": "$.otpResult",
               "Next": "SendOTP"
             },
             "SendOTP": {
-              "Type": "Pass",
-              "Result": "OTP sent (placeholder)",
+              "Type": "Task",
+              "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+              "Parameters": {
+                "Message.$": "States.Format('Your OTP code is: {}', $.otpResult.Payload.code)",
+                "PhoneNumber.$": "$.phone_number",
+                "MessageAttributes": {
+                  "AWS.SNS.SMS.SMSType": {
+                    "DataType": "String",
+                    "StringValue": "Transactional"
+                  }
+                }
+              },
               "ResultPath": "$.smsResult",
               "Next": "Success"
             },
