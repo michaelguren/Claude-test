@@ -1,0 +1,36 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "Minimalist TODO Application Main SAM Stack",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "stage", "prod"],
+      "Description": "Environment name passed to nested applications"
+    }
+  },
+  "Resources": {
+    "FrontendApp": {
+      "Type": "AWS::Serverless::Application",
+      "Properties": {
+        "Location": "stacks/frontend/frontend.json",
+        "Parameters": { "Environment": { "Ref": "Environment" } }
+      }
+    }
+  },
+  "Outputs": {
+    "Environment": {
+      "Description": "Deployment environment",
+      "Value": { "Ref": "Environment" }
+    },
+    "FrontendURL": {
+      "Description": "URL of the static website",
+      "Value": { "Fn::GetAtt": ["FrontendApp", "Outputs.FrontendURL"] }
+    },
+    "FrontendBucketName": {
+      "Description": "S3 bucket for static website files",
+      "Value": { "Fn::GetAtt": ["FrontendApp", "Outputs.FrontendBucketName"] }
+    }
+  }
+}

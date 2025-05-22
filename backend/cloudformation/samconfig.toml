@@ -1,11 +1,11 @@
 version = 0.1
 [dev.deploy.parameters]
-stack_name = "minimalist-todo"
+stack_name = "minimalist-todo-20250521"
 resolve_s3 = true
-s3_prefix = "minimalist-todo"
+s3_prefix = "minimalist-todo-20250521"
 region = "us-east-1"
 profile = "dev"
 confirm_changeset = true
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 parameter_overrides = "Environment=\"dev\""
 image_repositories = []

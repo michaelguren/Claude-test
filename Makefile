@@ -1,10 +1,13 @@
-# Makefile for Minimalist Todo Deployment (One AWS Account Per Env)
+# Makefile for Minimalist Todo Deployment (One AWS Account Per Env) - DRY VERSION
 
-APP_NAME ?= minimalist-todo
+APP_NAME ?= minimalist-todo-20250521
 AWS_REGION ?= us-east-1
 ENV ?= dev                 # Used as AWS_PROFILE (e.g., dev, prod)
-TEMPLATE_PATH = backend/cloudformation/template.yaml
+TEMPLATE_PATH = backend/cloudformation/template.json
 STACK_NAME = $(APP_NAME)
+
+SAM_DEPLOY_FLAGS = --profile $(ENV) --region $(AWS_REGION) --stack-name $(STACK_NAME) --template-file $(TEMPLATE_PATH) --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND --resolve-s3
+AWS_CLI_FLAGS = --profile $(ENV) --region $(AWS_REGION)
 
 .PHONY: deploy deploy-backend deploy-backend-guided delete-backend build-backend deploy-frontend build-frontend delete-frontend help
 
@@ -18,19 +21,21 @@ build-backend:
 # First-time/interactive backend deploy
 deploy-backend-guided: build-backend
 	@echo "Guided deploy for backend to AWS profile $(ENV) in $(AWS_REGION)..."
-	sam deploy --guided --profile $(ENV) --region $(AWS_REGION) --stack-name $(STACK_NAME) --template-file $(TEMPLATE_PATH)
-	
-	
+	sam deploy --guided $(SAM_DEPLOY_FLAGS)
+
 # Backend SAM deploy
 deploy-backend: build-backend
 	@echo "Deploying backend (SAM) to AWS profile $(ENV) in $(AWS_REGION)..."
-	sam deploy --profile $(ENV) --region $(AWS_REGION) --stack-name $(STACK_NAME) --template-file $(TEMPLATE_PATH)
+	sam deploy $(SAM_DEPLOY_FLAGS)
 
+sync-backend:
+	@echo "Starting SAM sync for backend (dev environment)..."
+	sam sync --stack-name $(STACK_NAME) --profile $(ENV) --region $(AWS_REGION) --watch --template-file $(TEMPLATE_PATH)
 
 # Delete backend stack
 delete-backend:
 	@echo "Deleting backend stack $(STACK_NAME) from AWS profile $(ENV)..."
-	aws cloudformation delete-stack --stack-name $(STACK_NAME) --profile $(ENV) --region $(AWS_REGION)
+	aws cloudformation delete-stack --stack-name $(STACK_NAME) $(AWS_CLI_FLAGS)
 
 # Frontend: Deploy static assets using the script
 deploy-frontend:
@@ -47,15 +52,14 @@ delete-frontend:
 	@echo "Deleting all frontend assets from frontend bucket in AWS profile $(ENV)..."
 	FRONTEND_BUCKET_NAME=$$(aws cloudformation describe-stacks \
 		--stack-name $(APP_NAME) \
-		--region $(AWS_REGION) \
-		--profile $(ENV) \
+		$(AWS_CLI_FLAGS) \
 		--query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
 		--output text --no-paginate 2>/dev/null); \
 	if [ -z "$$FRONTEND_BUCKET_NAME" ]; then \
 	  echo "⚠️  Could not determine frontend bucket name from stack outputs. Skipping asset deletion."; \
 	else \
 	  echo "Deleting assets in bucket: $$FRONTEND_BUCKET_NAME"; \
-	  aws s3 rm s3://$$FRONTEND_BUCKET_NAME --recursive --region $(AWS_REGION) --profile $(ENV); \
+	  aws s3 rm s3://$$FRONTEND_BUCKET_NAME --recursive $(AWS_CLI_FLAGS); \
 	fi
 
 # Help
