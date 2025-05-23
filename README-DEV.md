@@ -148,12 +148,30 @@ Before completing a task, evaluate:
 
 ## 📎 Resources
 
+### AWS SAM & CloudFormation
+
 - [AWS SAM Developer Guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)
 - [AWS SAM CLI Reference](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-command-reference.html)
 - [CloudFormation JSON Resource Reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html)
-- [Velocity Template Language (VTL) Reference](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html)
-- [API Gateway REST API Integration Types](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-integration-types.html)
+
+### API Gateway & VTL Integration
+
+- [API Gateway REST API Developer Guide](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html) - Complete reference for REST API patterns
+- [Velocity Template Language (VTL) Reference](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html) - Critical for direct service integrations
+- [API Gateway Integration Types](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-integration-types.html) - Direct service vs Lambda patterns
+- [Working with REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-create-api.html) - Core concepts and setup
+- [API Gateway Best Practices](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html) - Throttling, caching, performance
+
+### CloudFormation Resource References
+
+- [AWS::ApiGateway::RestApi](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-restapi.html) - REST API resource definition
+- [AWS::DynamoDB::Table](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html) - DynamoDB table configuration
+- [AWS::IAM::Role](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html) - IAM roles for service integrations
+
+### Security & Best Practices
+
 - [Security Best Practices for IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [DynamoDB Best Practices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html) - Single table design patterns
 
 ---
 

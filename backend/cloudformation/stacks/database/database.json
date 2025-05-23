@@ -1,0 +1,136 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "Database infrastructure - Single DynamoDB table for all entities",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "stage", "prod"],
+      "Description": "Deployment environment"
+    }
+  },
+  "Resources": {
+    "MainTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": {
+          "Fn::Sub": "${AWS::StackName}-main-table"
+        },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "PK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "SK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "GSI1PK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "GSI1SK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "GSI2PK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "GSI2SK",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "PK",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "SK",
+            "KeyType": "RANGE"
+          }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "GSI1",
+            "KeySchema": [
+              {
+                "AttributeName": "GSI1PK",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "GSI1SK",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          },
+          {
+            "IndexName": "GSI2",
+            "KeySchema": [
+              {
+                "AttributeName": "GSI2PK",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "GSI2SK",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "ProjectionType": "ALL"
+            }
+          }
+        ],
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        },
+        "SSESpecification": {
+          "SSEEnabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Purpose",
+            "Value": "Single table for all application entities"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "MainTableName": {
+      "Description": "Name of the main DynamoDB table",
+      "Value": {
+        "Ref": "MainTable"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-MainTableName"
+        }
+      }
+    },
+    "MainTableArn": {
+      "Description": "ARN of the main DynamoDB table",
+      "Value": {
+        "Fn::GetAtt": ["MainTable", "Arn"]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-MainTableArn"
+        }
+      }
+    }
+  }
+}

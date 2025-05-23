@@ -11,26 +11,59 @@
     }
   },
   "Resources": {
-    "FrontendApp": {
+    "DatabaseStack": {
+      "Type": "AWS::Serverless::Application",
+      "Properties": {
+        "Location": "stacks/database/database.json",
+        "Parameters": {
+          "Environment": {
+            "Ref": "Environment"
+          }
+        }
+      }
+    },
+    "FrontendStack": {
       "Type": "AWS::Serverless::Application",
       "Properties": {
         "Location": "stacks/frontend/frontend.json",
-        "Parameters": { "Environment": { "Ref": "Environment" } }
+        "Parameters": {
+          "Environment": {
+            "Ref": "Environment"
+          }
+        }
       }
     }
   },
   "Outputs": {
     "Environment": {
       "Description": "Deployment environment",
-      "Value": { "Ref": "Environment" }
+      "Value": {
+        "Ref": "Environment"
+      }
+    },
+    "MainTableName": {
+      "Description": "Name of the main DynamoDB table",
+      "Value": {
+        "Fn::GetAtt": ["DatabaseStack", "Outputs.MainTableName"]
+      }
+    },
+    "MainTableArn": {
+      "Description": "ARN of the main DynamoDB table",
+      "Value": {
+        "Fn::GetAtt": ["DatabaseStack", "Outputs.MainTableArn"]
+      }
     },
     "FrontendURL": {
       "Description": "URL of the static website",
-      "Value": { "Fn::GetAtt": ["FrontendApp", "Outputs.FrontendURL"] }
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendURL"]
+      }
     },
     "FrontendBucketName": {
       "Description": "S3 bucket for static website files",
-      "Value": { "Fn::GetAtt": ["FrontendApp", "Outputs.FrontendBucketName"] }
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendBucketName"]
+      }
     }
   }
 }
