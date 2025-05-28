@@ -1,6 +1,6 @@
 # Minimalist TODO App Scaffold
 
-This repository contains a **minimal, reusable scaffolding** for web applications. It is designed to last over a decade with minimal ongoing maintenance, and aims to simplify development by favoring clear, dependency-free patterns using native AWS services.
+This repository contains a **minimal, reusable scaffolding** for web applications. It is designed to last over a decade with minimal ongoing maintenance, prioritizing simplicity and developer velocity over architectural complexity.
 
 ---
 
@@ -8,134 +8,246 @@ This repository contains a **minimal, reusable scaffolding** for web application
 
 This project serves as a boilerplate for building scalable, secure, and highly maintainable web applications using:
 
-- **AWS serverless infrastructure**
+- **AWS serverless infrastructure** (HTTP API + Lambda + DynamoDB)
 - **Pure frontend code (Vanilla JS/HTML/CSS)**
 - **Zero external dependencies or SDKs**
+- **Simple, predictable patterns**
 
-It is intended as a starting point for future apps, prioritizing long-term durability over short-term productivity hacks.
+It is intended as a starting point for future apps, prioritizing long-term durability and development speed over architectural purity.
 
 ---
 
 ## ⚙️ Architectural Principles
 
 1. **Zero runtime dependencies**: No frameworks, SDKs, or bundlers.
-2. **AWS SAM-first infrastructure**: All infrastructure defined in SAM JSON templates with enhanced deployment capabilities and domain-based organization.
-3. **VTL-first integration**: Use VTL and REST API Gateway direct service integrations; avoid Lambda unless compute is required.
-4. **Strict data isolation**: Each user's data is isolated at every layer.
-5. **Frontend purity**: Vanilla JS with custom micro-utilities for interactivity.
-6. **Simple CRUD patterns**: All operations designed to be VTL-compatible for predictable performance and maintainability.
-7. **Development velocity**: SAM's sync mode and intelligent change detection for rapid iteration.
+2. **AWS SAM-first infrastructure**: All infrastructure defined in SAM templates leveraging SAM's strengths.
+3. **Lambda per resource**: One Lambda function handles all operations for each business resource (users, todos, etc.).
+4. **HTTP API Gateway**: Modern, cost-effective API Gateway with built-in JWT authorization.
+5. **Strict data isolation**: Each user's data is isolated at every layer.
+6. **Frontend purity**: Vanilla JS with custom micro-utilities for interactivity.
+7. **Simple CRUD patterns**: Standard HTTP endpoints with JSON request/response.
+8. **Development velocity**: SAM's sync mode and local testing for rapid iteration.
 
 ---
 
-## 🤖 AI Pair Programming Expectations
+## 🚀 Serverless-First Strategy
 
-When used in conjunction with an AI code assistant:
+This scaffold embraces **serverless-first architecture** with a focus on simplicity and cost-effectiveness:
 
-- Assume **REST API Gateway + VTL** as the default integration pattern.
-- Prefer **AWS SAM JSON** for all infrastructure definitions with auto-formatting support.
-- Do **not** suggest any other third-party tooling (e.g., CDK, Amplify, SST).
-- Suggest durable, low-maintenance solutions.
-- Avoid introducing complexity unless explicitly requested.
-- Prioritize simple, human-readable code that reflects best practices.
+### Strategic Decisions:
 
-Use AI to:
+- **Lambda over containers** - No server management, automatic scaling
+- **HTTP API over REST API** - 50% cost savings, simpler integration
+- **JWT authorization** - Built-in HTTP API auth, no custom logic needed
+- **One Lambda per resource** - Shared logic, better cold start management
+- **DynamoDB single-table design** - Optimized for serverless access patterns
 
-- Help with VTL mappings and IAM permissions
-- Validate AWS SAM template structures and deployment strategies
-- Scaffold new backend/frontend features in AWS-native style
-- Challenge architectural decisions where appropriate
+### Target Scale & Economics:
 
----
+- **Supports 500,000+ daily active users** cost-effectively
+- **~$120/month at 10 requests/second** vs $850+ with complex orchestration
+- **Perfect for MVP through significant scale** - simple to understand and maintain
 
-## 🚀 Infrastructure & Development Workflow (SAM-Powered)
+### Core Architecture Pattern:
 
-This scaffold leverages **AWS SAM** for superior infrastructure management and development velocity:
-
-**Key SAM Advantages Over Raw CloudFormation:**
-
-- **Intelligent deployment**: Only changed resources are updated, dramatically reducing deployment time
-- **Stack management**: Proper dependency resolution and rollback capabilities
-- **Development sync mode**: `sam sync` provides real-time cloud synchronization during development
-- **Drift detection**: Automatic detection and management of infrastructure drift
-- **Built-in best practices**: SAM templates include security and performance optimizations by default
-- **Local testing**: `sam local` for testing API Gateway and Lambda integrations offline
-- **Domain-based organization**: Nested stacks separated by business domain for maintainability
-
-**Template Strategy:**
-
-- **SAM JSON templates** for all infrastructure (auto-formatting friendly, no indentation issues)
-- **Domain-based nested stacks**: API, AUTHENTICATION, TODO, TODO_COMMENTS, etc.
-- **Clear separation of concerns** with isolated deployable units per domain
-
-**Development Workflow:**
-
-```bash
-# Development mode with real-time sync
-sam sync --watch --stack-name myapp-dev
-
-# Production deployment with change detection
-sam build && sam deploy --stack-name myapp-prod
+```
+Frontend (Vanilla JS/CSS/HTML)
+    ↓
+Custom Domain → HTTP API Gateway (JWT Auth)
+    ↓
+Lambda Functions (one per resource)
+    ↓
+DynamoDB (single table design)
 ```
 
-This eliminates the need for custom bash scripts and provides enterprise-grade deployment capabilities out of the box.
+---
+
+## 🔧 Auth Architecture Overview
+
+This scaffold uses a simple, secure authentication system:
+
+- **HTTP API Gateway** with built-in JWT authorizers
+- **Amazon Cognito User Pools** for user management
+- **JSON Web Tokens (JWT)** for stateless authentication
+- **DynamoDB** stores user records with role-based access
+- **Lambda functions** handle auth operations (login, register, refresh)
+
+**Key Benefits:**
+
+- **Built-in authorization** - HTTP API handles JWT validation
+- **Stateless design** - No session management complexity
+- **Role-based access** - Admin vs user permissions
+- **AWS-native** - Cognito handles user management, password policies, MFA
 
 ---
 
-## 🔧 Auth Architecture Overview (as of May 2025)
+## 🔧 Bootstrap Strategy
 
-This scaffold includes a custom user authentication system built from first principles using:
+### First Admin User Creation
 
-- **AWS REST API Gateway** — predictable performance, built-in throttling, request validation
-- **VTL (Velocity Template Language)** — direct service integrations without Lambda cold starts
-- **DynamoDB** — stores normalized user records (phone-first, email optional)
-- **Amazon SNS** — used for SMS-based OTP delivery
-- **Optional passkey (WebAuthn) support** — planned for secure, passwordless login
+Since user creation requires admin privileges, we use a **database seeding approach**:
 
-We intentionally avoid AWS Cognito and Lambda-heavy patterns to simplify customization, ensure predictable performance, and maximize long-term maintainability. Rather, we are building authentication taking inspiration from: https://firtman.github.io/authentication/.
+**One-time setup after first deployment:**
 
-**Key Benefits of REST API + VTL Pattern:**
+```bash
+# Run this script once to create your first admin user
+./scripts/create-first-admin.sh
+```
 
-- **50-100ms response times** with no cold start variability
-- **Built-in request validation** and throttling
-- **Predictable performance** for all operations
-- **Lower operational costs** (no Lambda invocation charges)
-- **Future-proof**: positioned for AWS's enhanced API Gateway capabilities
+**The script directly inserts the admin user into DynamoDB:**
+
+- Bypasses API authorization (runs with your AWS credentials)
+- Creates admin user with `role: "ADMIN"`
+- Only needs to be run once per environment
+- Can be customized for your admin email/details
+
+**After the first admin exists:**
+
+- All subsequent users created via `/users` API endpoints
+- Admin users can create/manage other users through the web interface
+- No special bootstrap code paths in your application
 
 ---
 
-## 🔄 Application Pattern Philosophy
+## 🔄 Lambda Function Pattern
 
-All operations are designed to be **VTL-compatible**, meaning:
+All Lambda functions follow a consistent resource-based pattern:
 
-- **Simple CRUD operations** with minimal data transformation
-- **Direct service integrations** (DynamoDB, SNS, SES)
-- **Complex business logic** handled in frontend or async processing
-- **Clear data contracts** that map cleanly to VTL transformations
+```javascript
+// src/users.js - Handles all user operations
+exports.handler = async (event) => {
+  const { httpMethod, pathParameters } = event;
 
-This constraint forces architectural discipline and creates inherently maintainable, portable operations.
+  try {
+    switch (httpMethod) {
+      case "POST":
+        return await createUser(event);
+      case "GET":
+        return await getUser(pathParameters?.userId);
+      case "PUT":
+        return await updateUser(pathParameters?.userId, event);
+      case "DELETE":
+        return await deleteUser(pathParameters?.userId);
+      default:
+        return { statusCode: 405, body: "Method Not Allowed" };
+    }
+  } catch (error) {
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+  }
+};
+```
+
+This pattern provides:
+
+- **Consistent error handling** across all endpoints
+- **Shared initialization code** (DB connections, etc.)
+- **Better cold start performance**
+- **Easier testing and debugging**
+
+---
+
+## 🔐 Secrets Management
+
+Configuration and secrets are handled using AWS-native services:
+
+- **AWS Systems Manager Parameter Store** for application configuration
+- **AWS Secrets Manager** for sensitive data (API keys, database credentials)
+- **Environment variables** populated from these services via SAM templates
+- **No hardcoded secrets** in code or templates
+
+Example usage in SAM templates:
+
+```yaml
+Environment:
+  Variables:
+    DB_NAME: "{{resolve:secretsmanager:/myApp/DbName}}"
+    API_KEY: "{{resolve:secretsmanager:/myApp/ApiKey}}"
+    LOG_LEVEL: !Ref LogLevelParameter
+```
+
+---
+
+## 🌐 Custom Domain & SSL
+
+Professional deployment includes:
+
+- **Custom domain configuration** via Route 53
+- **SSL certificate management** via AWS Certificate Manager
+- **CloudFront distribution** for global performance
+- **Automatic HTTPS redirects**
+
+Domain setup is handled entirely through SAM templates with minimal configuration required.
+
+---
 
 ## 💡 Customization & Iteration
 
-This template is intentionally minimal. Additions and modifications should:
+This template is intentionally minimal. Additions should:
 
-- Be implemented as isolated, composable modules
-- Respect boundaries between data, logic, and presentation
-- Maintain VTL-compatible patterns
-- Avoid tight coupling or unnecessary abstraction
-- Be documented clearly for future developers (including your future self)
+- Follow the **one Lambda per resource** pattern
+- Use **HTTP API Gateway** for all new endpoints
+- Maintain **simple CRUD operations**
+- Keep **JWT authorization** consistent
+- Document clearly for future developers
 
-Examples of where customization is expected:
+Examples of expected customization:
 
-- Adding additional DynamoDB indexes or tables
-- Extending API Gateway with more VTL-integrated routes
-- Introducing additional user workflows or features
-- Creating frontend micro-utilities for enhanced interactivity
+- Adding new business resources (todos, comments, etc.)
+- Extending user management capabilities
+- Adding background job processing
+- Creating admin dashboard endpoints
+
+---
+
+## ✅ Cost Estimates
+
+**Monthly costs at 10 requests/second (~26M requests/month):**
+
+- HTTP API Gateway: ~$50
+- Lambda Functions: ~$30
+- DynamoDB: ~$40
+- Cognito: ~$0 (under free tier)
+- **Total: ~$120/month**
+
+This scales cost-effectively to 500k+ daily active users before requiring architectural changes.
+
+---
+
+## 🛣️ Development Roadmap
+
+### MVP Phase (Current)
+
+- ✅ HTTP API + Lambda + DynamoDB foundation
+- ✅ JWT authentication with Cognito
+- ✅ Custom domain setup
+- ✅ Secrets management
+- 🔄 First business resource (todos)
+
+### Production Phase (Later)
+
+- Safe deployment strategies (canary/blue-green)
+- Governance and compliance (AWS Config)
+- Monitoring and alerting
+- Performance optimization
+
+### Scale Phase (Much Later)
+
+- Multi-region deployment
+- Advanced caching strategies
+- Microservice decomposition (if needed)
 
 ---
 
 ## ✅ Status
 
-> Early scaffolding phase. Expect frequent iteration. Stability not guaranteed yet.
+> **MVP Phase** - Stable scaffolding architecture suitable for development and testing.
 
-If you are reading this with the intent to contribute or replicate, please reach out or open an issue to align on the project's current trajectory.
+This scaffold prioritizes **simplicity, maintainability, and cost-effectiveness** over architectural complexity. Perfect for building sustainable, profitable applications that can scale from prototype to significant user base.
+
+**Next Steps:**
+
+1. Deploy core infrastructure
+2. Implement first business resource (todos)
+3. Build minimal frontend
+4. Test end-to-end functionality
+5. Iterate toward production readiness

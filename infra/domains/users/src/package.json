@@ -1,0 +1,19 @@
+{
+  "name": "users-domain",
+  "version": "1.0.0",
+  "description": "User management domain for minimalist todo app",
+  "main": "handler.js",
+  "dependencies": {
+    "ulid": "^3.0.0"
+  },
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "users",
+    "lambda",
+    "serverless"
+  ],
+  "author": "",
+  "license": "MIT"
+}

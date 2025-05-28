@@ -1,0 +1,200 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "Minimalist TODO Application - Consolidated Infrastructure",
+
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "stage", "prod"],
+      "Description": "Deployment environment"
+    }
+  },
+
+  "Conditions": {
+    "IsProduction": {
+      "Fn::Not": [{ "Fn::Equals": [{ "Ref": "Environment" }, "dev"] }]
+    }
+  },
+
+  "Globals": {
+    "Function": {
+      "Timeout": 10,
+      "MemorySize": 256,
+      "Runtime": "nodejs22.x",
+      "Environment": {
+        "Variables": {
+          "TABLE_NAME": { "Ref": "MainTable" },
+          "ENVIRONMENT": { "Ref": "Environment" }
+        }
+      }
+    }
+  },
+
+  "Resources": {
+    "HttpApi": {
+      "Type": "AWS::Serverless::HttpApi",
+      "Description": "Shared HTTP API Gateway for all domains",
+      "Properties": {
+        "CorsConfiguration": {
+          "AllowCredentials": {
+            "Fn::If": ["IsProduction", true, { "Ref": "AWS::NoValue" }]
+          },
+          "AllowHeaders": ["Content-Type", "Authorization"],
+          "AllowMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+          "AllowOrigins": {
+            "Fn::If": [
+              "IsProduction",
+              ["https://your-production-domain.com"],
+              ["*"]
+            ]
+          }
+        },
+        "DefaultRouteSettings": {
+          "ThrottlingBurstLimit": 100,
+          "ThrottlingRateLimit": 50
+        }
+      }
+    },
+
+    "MainTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Description": "Single DynamoDB table for all application entities",
+      "Properties": {
+        "TableName": { "Fn::Sub": "${AWS::StackName}-main-table" },
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          { "AttributeName": "PK", "AttributeType": "S" },
+          { "AttributeName": "SK", "AttributeType": "S" },
+          { "AttributeName": "GSI1PK", "AttributeType": "S" },
+          { "AttributeName": "GSI1SK", "AttributeType": "S" }
+        ],
+        "KeySchema": [
+          { "AttributeName": "PK", "KeyType": "HASH" },
+          { "AttributeName": "SK", "KeyType": "RANGE" }
+        ],
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexName": "GSI1",
+            "KeySchema": [
+              { "AttributeName": "GSI1PK", "KeyType": "HASH" },
+              { "AttributeName": "GSI1SK", "KeyType": "RANGE" }
+            ],
+            "Projection": { "ProjectionType": "ALL" }
+          }
+        ],
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true
+        },
+        "SSESpecification": { "SSEEnabled": true }
+      }
+    },
+
+    "UsersFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Description": "Handles all user management operations",
+      "Properties": {
+        "CodeUri": "domains/users/src",
+        "Handler": "index.handler",
+        "Policies": [
+          {
+            "DynamoDBCrudPolicy": {
+              "TableName": { "Ref": "MainTable" }
+            }
+          }
+        ],
+        "Events": {
+          "CreateUser": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/users",
+              "Method": "POST"
+            }
+          },
+          "GetUser": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/users/{userId}",
+              "Method": "GET"
+            }
+          },
+          "UpdateUser": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/users/{userId}",
+              "Method": "PUT"
+            }
+          },
+          "DeleteUser": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/users/{userId}",
+              "Method": "DELETE"
+            }
+          },
+          "ListUsers": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/users",
+              "Method": "GET"
+            }
+          }
+        }
+      }
+    },
+
+    "FrontendStack": {
+      "Type": "AWS::Serverless::Application",
+      "Description": "Frontend infrastructure (S3, CloudFront)",
+      "Properties": {
+        "Location": "stacks/frontend/frontend.json",
+        "Parameters": {
+          "Environment": { "Ref": "Environment" }
+        }
+      }
+    }
+  },
+
+  "Outputs": {
+    "Environment": {
+      "Description": "Deployment environment",
+      "Value": { "Ref": "Environment" }
+    },
+    "HttpApiId": {
+      "Description": "ID of the shared HTTP API",
+      "Value": { "Ref": "HttpApi" }
+    },
+    "HttpApiUrl": {
+      "Description": "URL of the HTTP API",
+      "Value": {
+        "Fn::Sub": "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+      }
+    },
+    "MainTableName": {
+      "Description": "Name of the main DynamoDB table",
+      "Value": { "Ref": "MainTable" }
+    },
+    "MainTableArn": {
+      "Description": "ARN of the main DynamoDB table",
+      "Value": { "Fn::GetAtt": ["MainTable", "Arn"] }
+    },
+    "FrontendURL": {
+      "Description": "URL of the static website",
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendURL"]
+      }
+    },
+    "FrontendBucketName": {
+      "Description": "S3 bucket for static website files",
+      "Value": {
+        "Fn::GetAtt": ["FrontendStack", "Outputs.FrontendBucketName"]
+      }
+    }
+  }
+}

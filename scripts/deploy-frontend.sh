@@ -26,3 +26,17 @@ else
   echo "❌ Failed to upload frontend assets. See above for details."
   exit 1
 fi
+
+# Invalidate Cloudfront
+if [ "$ENV" != "dev" ]; then
+  DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+    --stack-name "$APP_NAME" \
+    --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+    --output text)
+  
+  if [ -n "$DISTRIBUTION_ID" ]; then
+    aws cloudfront create-invalidation \
+      --distribution-id "$DISTRIBUTION_ID" \
+      --paths "/*"
+  fi
+fi

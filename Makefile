@@ -1,6 +1,6 @@
 # Makefile for Minimalist Todo Deployment (One AWS Account Per Env) - DRY VERSION
 
-APP_NAME ?= minimalist-todo-20250521
+APP_NAME ?= minimalist-todo-20250526
 AWS_REGION ?= us-east-1
 ENV ?= dev                 # Used as AWS_PROFILE (e.g., dev, prod)
 TEMPLATE_PATH = backend/cloudformation/template.json
@@ -35,12 +35,13 @@ sync-backend:
 # Delete backend stack
 delete-backend:
 	@echo "Deleting backend stack $(STACK_NAME) from AWS profile $(ENV)..."
+	./backend/scripts/delete-buckets-with-prefix.sh
 	aws cloudformation delete-stack --stack-name $(STACK_NAME) $(AWS_CLI_FLAGS)
 
 # Frontend: Deploy static assets using the script
 deploy-frontend:
 	@echo "Deploying frontend to AWS profile $(ENV) in $(AWS_REGION)..."
-	APP_NAME=$(APP_NAME) ENV=$(ENV) AWS_REGION=$(AWS_REGION) ./scripts/deploy-frontend.sh
+	APP_NAME=$(APP_NAME) ENV=$(ENV) AWS_REGION=$(AWS_REGION) ./backend/cloudformation/scripts/deploy-frontend.sh
 
 # Build frontend assets (customize as needed)
 build-frontend:

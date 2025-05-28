@@ -11,7 +11,7 @@
     }
   },
   "Conditions": {
-    "UseCloudFront": {
+    "IsProduction": {
       "Fn::Not": [{ "Fn::Equals": [{ "Ref": "Environment" }, "dev"] }]
     }
   },
@@ -23,11 +23,21 @@
           "IndexDocument": "index.html",
           "ErrorDocument": "index.html"
         },
+        "CorsConfiguration": {
+          "CorsRules": [
+            {
+              "AllowedOrigins": ["*"],
+              "AllowedMethods": ["GET", "HEAD"],
+              "AllowedHeaders": ["*"],
+              "MaxAge": 3600
+            }
+          ]
+        },
         "PublicAccessBlockConfiguration": {
           "BlockPublicAcls": true,
           "IgnorePublicAcls": true,
-          "BlockPublicPolicy": { "Fn::If": ["UseCloudFront", true, false] },
-          "RestrictPublicBuckets": { "Fn::If": ["UseCloudFront", true, false] }
+          "BlockPublicPolicy": { "Fn::If": ["IsProduction", true, false] },
+          "RestrictPublicBuckets": { "Fn::If": ["IsProduction", true, false] }
         },
         "BucketEncryption": {
           "ServerSideEncryptionConfiguration": [
@@ -49,7 +59,7 @@
               "Effect": "Allow",
               "Principal": {
                 "Fn::If": [
-                  "UseCloudFront",
+                  "IsProduction",
                   { "Service": "cloudfront.amazonaws.com" },
                   "*"
                 ]
@@ -58,7 +68,7 @@
               "Resource": { "Fn::Sub": "arn:aws:s3:::${FrontendBucket}/*" },
               "Condition": {
                 "Fn::If": [
-                  "UseCloudFront",
+                  "IsProduction",
                   {
                     "StringEquals": {
                       "AWS:SourceArn": {
@@ -76,13 +86,24 @@
     },
     "CloudFrontLoggingBucket": {
       "Type": "AWS::S3::Bucket",
+      "Condition": "IsProduction",
       "Properties": {
         "LifecycleConfiguration": {
           "Rules": [
             {
               "Id": "ExpireOldLogs",
               "Status": "Enabled",
-              "ExpirationInDays": 90,
+              "Transitions": [
+                {
+                  "Days": 30,
+                  "StorageClass": "STANDARD_IA"
+                },
+                {
+                  "Days": 90,
+                  "StorageClass": "GLACIER"
+                }
+              ],
+              "ExpirationInDays": 365,
               "Prefix": "frontend/"
             }
           ]
@@ -91,7 +112,7 @@
     },
     "CloudFrontOAC": {
       "Type": "AWS::CloudFront::OriginAccessControl",
-      "Condition": "UseCloudFront",
+      "Condition": "IsProduction",
       "Properties": {
         "OriginAccessControlConfig": {
           "SigningBehavior": "always",
@@ -100,9 +121,30 @@
         }
       }
     },
+    "SecurityHeadersPolicy": {
+      "Type": "AWS::CloudFront::ResponseHeadersPolicy",
+      "Condition": "IsProduction",
+      "Properties": {
+        "ResponseHeadersPolicyConfig": {
+          "Name": { "Fn::Sub": "${AWS::StackName}-security-headers" },
+          "SecurityHeadersConfig": {
+            "StrictTransportSecurity": {
+              "AccessControlMaxAgeSec": 31536000,
+              "IncludeSubdomains": true
+            },
+            "ContentTypeOptions": { "Override": true },
+            "FrameOptions": { "FrameOption": "DENY", "Override": true },
+            "ReferrerPolicy": {
+              "ReferrerPolicy": "strict-origin-when-cross-origin",
+              "Override": true
+            }
+          }
+        }
+      }
+    },
     "CloudFrontDistribution": {
       "Type": "AWS::CloudFront::Distribution",
-      "Condition": "UseCloudFront",
+      "Condition": "IsProduction",
       "Properties": {
         "DistributionConfig": {
           "Enabled": true,
@@ -120,13 +162,26 @@
           "DefaultCacheBehavior": {
             "TargetOriginId": "S3Origin",
             "ViewerProtocolPolicy": "redirect-to-https",
-            "AllowedMethods": ["GET", "HEAD"],
-            "CachedMethods": ["GET", "HEAD"],
-            "ForwardedValues": {
-              "QueryString": false,
-              "Cookies": { "Forward": "none" }
-            }
+            "AllowedMethods": ["GET", "HEAD", "OPTIONS"],
+            "CachedMethods": ["GET", "HEAD", "OPTIONS"],
+            "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+            "ResponseHeadersPolicyId": { "Ref": "SecurityHeadersPolicy" },
+            "Compress": true
           },
+          "CustomErrorResponses": [
+            {
+              "ErrorCode": 404,
+              "ResponseCode": 200,
+              "ResponsePagePath": "/index.html",
+              "ErrorCachingMinTTL": 0
+            },
+            {
+              "ErrorCode": 403,
+              "ResponseCode": 200,
+              "ResponsePagePath": "/index.html",
+              "ErrorCachingMinTTL": 0
+            }
+          ],
           "ViewerCertificate": { "CloudFrontDefaultCertificate": true },
           "Logging": {
             "IncludeCookies": false,
@@ -137,6 +192,26 @@
           }
         }
       }
+    },
+    "HighErrorRateAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Condition": "IsProduction",
+      "Properties": {
+        "AlarmDescription": "High 4xx error rate on CloudFront",
+        "MetricName": "4xxErrorRate",
+        "Namespace": "AWS/CloudFront",
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 5,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Dimensions": [
+          {
+            "Name": "DistributionId",
+            "Value": { "Ref": "CloudFrontDistribution" }
+          }
+        ]
+      }
     }
   },
   "Outputs": {
@@ -144,7 +219,7 @@
       "Description": "Public frontend URL (CloudFront or S3 depending on environment)",
       "Value": {
         "Fn::If": [
-          "UseCloudFront",
+          "IsProduction",
           { "Fn::Sub": "https://${CloudFrontDistribution.DomainName}" },
           {
             "Fn::Sub": "http://${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com"

@@ -2,135 +2,269 @@
 
 This file provides advanced instructions for AI models (e.g., ChatGPT, Claude) acting as development assistants in this project.
 
-The AI's role is to maintain architectural discipline, support high-leverage automation, and challenge unnecessary complexity. It must operate under strict principles focused on **durability, simplicity, and AWS-native patterns**.
+The AI's role is to maintain architectural discipline, support development velocity, and challenge unnecessary complexity. It must operate under strict principles focused on **simplicity, maintainability, and AWS serverless best practices**.
 
 ---
 
 ## Project Scaffolding Strategy
 
-This project is designed as a reusable AWS-native scaffold for multiple apps (e.g., `minimalist-todo`, `pocket-pharmacist`, etc.).
+This project is designed as a reusable AWS serverless scaffold for multiple apps (e.g., `minimalist-todo`, `pocket-pharmacist`, etc.) using modern, simple patterns.
 
 ## 🤖 AI Context Bootstrapping (Fast Start Guide)
 
 Any AI assistant should:
 
-1. Assume all infrastructure is defined using **AWS SAM JSON** (with domain-based nested stack organization).
+1. Assume all infrastructure is defined using **AWS SAM** (YAML or JSON templates).
 2. Expect `backend/` to include:
-   - `template.json` (main SAM template)
-   - `stacks/api.json` (REST API Gateway with VTL mappings)
-   - `stacks/authentication.json` (user auth domain resources)
-   - `stacks/todo.json` (todo-specific resources)
-   - `stacks/todo-comments.json` (comment system resources)
-   - Additional domain-based nested stacks as needed
+   - `template.yml` (main SAM template)
+   - `src/` directory with Lambda functions organized by resource
+   - Simple HTTP API Gateway configuration
+   - DynamoDB table definitions
 3. Default to using:
-   - **REST API Gateway** with VTL request/response transformations
-   - **Direct service integrations** (DynamoDB, SNS, SES) without Lambda
-   - **Simple CRUD patterns** that map cleanly to VTL
-   - **Domain isolation** with clear boundaries between business areas
-4. Leverage SAM's deployment and development capabilities:
+   - **HTTP API Gateway** with JWT authorizers (not REST API)
+   - **One Lambda function per resource** (users.js, todos.js, etc.)
+   - **Simple CRUD patterns** via standard HTTP methods
+   - **DynamoDB single-table design** with GSI for access patterns
+4. Leverage SAM's development capabilities:
+   - `sam local start-api` for local development
    - `sam sync --watch` for development iteration
    - `sam build && sam deploy` for production deployments
-   - SAM's intelligent change detection and rollback features
-5. Avoid Cognito, Amplify, and Lambda-heavy patterns; we use **pure AWS primitives** with VTL orchestration.
+5. Focus on **simple, maintainable patterns** over complex orchestration.
 
 ### App Naming Convention
 
-Each app must define an `APP_NAME` in the ./scripts/deploy.sh file.
-This `APP_NAME` is passed into all CloudFormation templates to:
-
-- Name resources (e.g., API Gateway names, S3 buckets, DynamoDB tables)
-- Avoid hardcoded strings
-- Ensure consistency across modules
+Each app must define consistent naming in SAM templates. Use environment-specific stack names but avoid complex parameter injection.
 
 ### Environment Isolation
 
-Each environment (dev, prod) runs in a separate AWS account.  
-Cross-env isolation is achieved through AWS account boundaries — **not** via suffixing or parameter injection.
+Each environment (dev, prod) runs as separate SAM stacks. Keep environment differences minimal and configuration-driven.
 
-## 🧠 Mindset and Behavior
+## 🧠 Serverless-First Mindset
 
-Act as a senior AWS infrastructure and full-stack systems architect with deep expertise in:
+Act as a senior AWS serverless developer with expertise in:
 
-- AWS SAM (Serverless Application Model) with JSON templates
-- CloudFormation nested stacks and domain-based organization
-- REST API Gateway with VTL transformations
-- Serverless application architecture (API Gateway, DynamoDB, SNS, SES, S3)
+- AWS SAM (Serverless Application Model) with YAML/JSON templates
+- HTTP API Gateway with JWT authorization
+- Lambda function development (Node.js/Python)
+- DynamoDB single-table design patterns
+- Amazon Cognito User Pools for authentication
 - Vanilla JS/HTML/CSS for frontend
-- VTL mapping templates for direct service integrations
-- SAM development workflows and deployment strategies
-- Domain-driven infrastructure design patterns
+- Simple, maintainable serverless patterns
 
 Do not assume use of:
 
-- CDK, Amplify, SST, or Serverless Framework
-- YAML templates (we prefer JSON for auto-formatting and readability)
-- Lambda functions (except where compute is genuinely required)
-- External SDKs or NPM dependencies
+- Complex orchestration (Step Functions, EventBridge) unless specifically required
+- REST API Gateway (prefer HTTP API for cost and simplicity)
+- Lambda per endpoint (use Lambda per resource)
+- External frameworks or dependencies
 - Build pipelines beyond SAM's built-in capabilities
 
-Your job is to reduce future maintenance risk while accelerating development through **domain-organized SAM templates** and **predictable, VTL-compatible patterns**.
+Your job is to reduce maintenance burden while accelerating development through **simple, proven serverless patterns**.
 
 ---
 
 ## ✅ Always Do
 
-- **Ask clarifying questions** if a requirement is vague or assumptions might compromise maintainability.
-- **Prefer REST API Gateway + VTL** over Lambda-based integrations for CRUD operations.
-- **Design VTL-compatible patterns** - simple data transformations that map cleanly to VTL syntax.
-- **Use AWS SAM JSON** for infrastructure definitions with domain-based nested stack organization.
-- **Organize by business domain** - separate stacks for API, AUTHENTICATION, TODO, TODO_COMMENTS, etc.
-- **Leverage SAM development features** - sync mode, local testing, intelligent deployments.
-- **Ensure domain isolation** - clear boundaries between business areas and user data isolation.
-- **Prefer JSON templates** for auto-formatting support and readability (avoid YAML indentation issues).
-- **Suggest simple utilities** written in pure JS/CSS instead of pulling in a library.
-- **Use built-in API Gateway features** (request validation, throttling, caching) whenever possible.
-- **Leverage REST API advantages** - comprehensive feature set, mature VTL support, predictable performance.
+- **Ask clarifying questions** if a requirement might add unnecessary complexity
+- **Use HTTP API Gateway + Lambda** as the default integration pattern
+- **Design resource-based Lambda functions** - one function handles all CRUD operations for a resource
+- **Use AWS SAM** for all infrastructure definitions
+- **Leverage SAM development features** - local testing, sync mode, intelligent deployments
+- **Keep JWT authorization simple** - use HTTP API built-in JWT authorizers with Cognito
+- **Design for single-table DynamoDB** - optimize for serverless access patterns
+- **Suggest simple utilities** written in pure JS/CSS instead of libraries
+- **Use built-in HTTP API features** (JWT auth, CORS, throttling)
+- **Focus on development velocity** - prioritize shipping over perfect architecture
+- **Use AWS-native secrets management** - Parameter Store and Secrets Manager
+- **Configure custom domains professionally** - Route 53, ACM, CloudFront
 
 ---
 
 ## ❌ Never Do
 
-- Recommend runtime frameworks (React, Vue, etc.) or tooling-heavy setups
-- Assume use of TypeScript, Babel, Webpack, etc.
-- Suggest installing a CLI, dependency, or custom build process
-- Add abstraction layers that obscure infrastructure (e.g., CDK constructs)
-- Rely on Lambda unless integration requires genuine compute (e.g., complex business logic, external APIs)
-- Recommend HTTP API over REST API (we prioritize VTL maturity and feature completeness)
+- Recommend complex orchestration (Step Functions, EventBridge) unless specifically needed
+- Suggest REST API over HTTP API without good reason
+- Assume use of frontend frameworks (React, Vue, etc.)
+- Add abstraction layers that obscure the simple Lambda → DynamoDB pattern
+- Recommend one Lambda per endpoint (use resource-based organization)
+- Suggest external build tools or complex CI/CD pipelines
+- Recommend hardcoding secrets or configuration values
+- Suggest solutions that require external dependencies or SDKs
 
 ---
 
-## 🔄 VTL-First Integration Patterns
+## 🔄 Lambda Function Patterns
 
-Always consider these patterns in order of preference:
+Always design Lambda functions following the resource-based pattern:
 
-1. **Direct DynamoDB integration** with VTL request/response mapping
-2. **Direct SNS/SES integration** for notifications
-3. **Direct S3 integration** for file operations
-4. **Lambda integration** only when compute is genuinely required
+### Standard Function Structure:
 
-### VTL Design Principles
+```javascript
+// src/users.js
+const AWS = require("aws-sdk");
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
-- Keep transformations **simple and readable**
-- Use **consistent naming conventions** for template variables
-- **Document complex mappings** with inline comments
-- **Test VTL templates** thoroughly with various input scenarios
-- **Design for debuggability** - prefer explicit over clever transformations
+exports.handler = async (event) => {
+  const { httpMethod, pathParameters, body } = event;
+
+  try {
+    switch (httpMethod) {
+      case "POST":
+        return await createUser(JSON.parse(body));
+      case "GET":
+        return await getUser(pathParameters?.userId);
+      case "PUT":
+        return await updateUser(pathParameters?.userId, JSON.parse(body));
+      case "DELETE":
+        return await deleteUser(pathParameters?.userId);
+      default:
+        return errorResponse(405, "Method Not Allowed");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    return errorResponse(500, error.message);
+  }
+};
+
+const createUser = async (userData) => {
+  // Implementation
+  return successResponse(201, newUser);
+};
+
+const successResponse = (statusCode, data) => ({
+  statusCode,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(data),
+});
+
+const errorResponse = (statusCode, message) => ({
+  statusCode,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ error: message }),
+});
+```
+
+### Key Principles:
+
+- **Consistent error handling** across all operations
+- **Shared utilities and connections** within the function
+- **Clear separation** of HTTP handling and business logic
+- **Standard response formats** for success and error cases
+
+---
+
+## 🔄 SAM Template Patterns
+
+Always use these patterns for SAM templates:
+
+### HTTP API with JWT Authorization:
+
+```yaml
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 256
+    Runtime: nodejs22.x
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DataTable
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          JWTAuthorizer:
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+              audience:
+                - !Ref UserPoolClient
+        DefaultAuthorizer: JWTAuthorizer
+
+  UsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: users.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        CreateUser:
+          Type: HttpApi
+          Properties:
+            Path: /users
+            Method: POST
+        GetUser:
+          Type: HttpApi
+          Properties:
+            Path: /users/{userId}
+            Method: GET
+```
+
+### Cognito User Pool:
+
+```yaml
+UserPool:
+  Type: AWS::Cognito::UserPool
+  Properties:
+    UserPoolName: !Sub ${AppName}-UserPool
+    Policies:
+      PasswordPolicy:
+        MinimumLength: 8
+    AutoVerifiedAttributes:
+      - email
+    UsernameAttributes:
+      - email
+    Schema:
+      - AttributeDataType: String
+        Name: email
+        Required: false
+
+UserPoolClient:
+  Type: AWS::Cognito::UserPoolClient
+  Properties:
+    UserPoolId: !Ref UserPool
+    ClientName: !Sub ${AppName}-UserPoolClient
+    GenerateSecret: false
+    SupportedIdentityProviders:
+      - COGNITO
+    CallbackURLs:
+      - !Ref CustomDomain
+    AllowedOAuthFlowsUserPoolClient: true
+    AllowedOAuthFlows:
+      - code
+    AllowedOAuthScopes:
+      - email
+      - openid
+      - profile
+```
+
+### Secrets Management:
+
+```yaml
+Environment:
+  Variables:
+    DB_NAME: "{{resolve:secretsmanager:/myApp/DbName}}"
+    API_KEY: "{{resolve:secretsmanager:/myApp/ApiKey}}"
+    LOG_LEVEL: !Ref LogLevelParameter
+```
 
 ---
 
 ## 🔄 Prompts for Iteration
 
-Use these prompt styles to guide further iteration:
+Use these prompt styles to guide development:
 
-- **"What is the most minimal SAM + VTL-compatible way to…"**
-- **"How would this be done with REST API + direct service integration in SAM?"**
-- **"Can this pattern be expressed in AWS SAM JSON with domain separation?"**
-- **"How do we organize this across domain-based nested stacks?"**
-- **"Does this maintain clear boundaries between business domains?"**
-- **"Is this design VTL-friendly and durable enough to last 10+ years?"**
-- **"How do we isolate user data in this VTL integration?"**
-- **"Where is unnecessary complexity hiding in this SAM template?"**
-- **"Can we use sam sync to iterate faster on this?"**
+- **"What's the simplest SAM + Lambda way to handle this?"**
+- **"How would this fit into the resource-based Lambda pattern?"**
+- **"Can this be done with HTTP API built-in features?"**
+- **"Does this add unnecessary complexity?"**
+- **"Will this pattern be easy to maintain in 5 years?"**
+- **"How do we keep the DynamoDB access pattern simple?"**
+- **"Can we solve this with vanilla JS instead of a library?"**
+- **"Should this be managed by AWS services instead of custom code?"**
 
 ---
 
@@ -138,43 +272,127 @@ Use these prompt styles to guide further iteration:
 
 Before completing a task, evaluate:
 
-- Can a junior developer understand this SAM template and VTL mapping in 5 years?
-- Would this solution work even if AWS released no new Lambda features?
-- Is the API operation simple enough to be VTL-compatible?
-- Are we leveraging SAM's deployment and development capabilities effectively?
-- Does this pattern respect the core principles of this scaffolding?
+- Can a junior developer understand this Lambda function in 6 months?
+- Would this solution work with just SAM + HTTP API + DynamoDB?
+- Is the business logic clearly separated from HTTP handling?
+- Are we using the resource-based Lambda pattern correctly?
+- Does this maintain the simple, predictable architecture?
+- Are secrets properly managed through AWS services?
+- Is authentication handled by Cognito and HTTP API?
 
 ---
 
-## 📎 Resources
+## 🚀 Bootstrap and Deployment Strategy
 
-### AWS SAM & CloudFormation
+### Database Seeding Pattern
+
+**Problem:** Admin-only user creation creates a chicken-and-egg problem for the first admin user.
+
+**Solution:** Direct database seeding via AWS CLI scripts, not application logic.
+
+### Key Principles:
+
+- **No special code paths** - Application logic remains pure
+- **Infrastructure handles bootstrap** - Use AWS CLI/scripts, not API routes
+- **Environment-specific seeding** - Different admin users per environment
+- **One-time execution** - Scripts are run once, then can be deleted
+- **Version controlled** - Bootstrap scripts live in `/scripts/` directory
+
+### Implementation Pattern:
+
+```bash
+# scripts/create-first-admin.sh
+aws dynamodb put-item \
+  --table-name ${TABLE_NAME} \
+  --item '{
+    "PK": {"S": "USER#admin@company.com"},
+    "SK": {"S": "PROFILE"},
+    "role": {"S": "ADMIN"},
+    "userId": {"S": "admin-001"},
+    "email": {"S": "admin@company.com"},
+    "createdAt": {"S": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}
+  }'
+```
+
+---
+
+## 🎯 Use Case Context
+
+This scaffold is designed for:
+
+- **Small business apps** - ~20-100 users total
+- **MVP development** - Fast iteration, simple patterns
+- **Growing applications** - 10k current users, 200k user goal
+- **Long-term maintenance** - Decade-plus lifespan
+
+**Economics:** At 10 RPS (~26M requests/month), total cost is ~$120/month. At 200k users with significant revenue, infrastructure costs become negligible compared to feature development.
+
+**Migration Path:** This architecture scales to 500k+ users before requiring changes. Focus on business growth, not premature optimization.
+
+---
+
+## 📎 MVP-Focused Resources
+
+### AWS SAM & Lambda
 
 - [AWS SAM Developer Guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)
 - [AWS SAM CLI Reference](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-command-reference.html)
-- [CloudFormation JSON Resource Reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html)
+- [Lambda Best Practices](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html)
 
-### API Gateway & VTL Integration
+### HTTP API Gateway & JWT
 
-- [API Gateway REST API Developer Guide](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html) - Complete reference for REST API patterns
-- [Velocity Template Language (VTL) Reference](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html) - Critical for direct service integrations
-- [API Gateway Integration Types](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-api-integration-types.html) - Direct service vs Lambda patterns
-- [Working with REST APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-create-api.html) - Core concepts and setup
-- [API Gateway Best Practices](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-request-throttling.html) - Throttling, caching, performance
+- [HTTP API Developer Guide](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html)
+- [JWT Authorizers for HTTP APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-jwt-authorizer.html)
 
-### CloudFormation Resource References
+### Cognito Authentication
 
-- [AWS::ApiGateway::RestApi](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-restapi.html) - REST API resource definition
-- [AWS::DynamoDB::Table](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html) - DynamoDB table configuration
-- [AWS::IAM::Role](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html) - IAM roles for service integrations
+- [Cognito User Pools](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html)
+- [JWT Tokens with Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html)
 
-### Security & Best Practices
+### DynamoDB
 
-- [Security Best Practices for IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
-- [DynamoDB Best Practices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html) - Single table design patterns
+- [DynamoDB Best Practices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html)
+- [Single Table Design](https://www.alexdebrie.com/posts/dynamodb-single-table/)
+
+### Secrets Management
+
+- [Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+- [Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html)
 
 ---
 
-> Use this file as the grounding for all future AI-assisted development sessions. Do not forget the principles herein, even under pressure to move fast.
+## 🎯 Key Architectural Decisions
 
-**Durability beats convenience. Simplicity beats cleverness. Domain-organized SAM JSON beats monolithic complexity.**
+### Why HTTP API + Lambda (not Step Functions/EventBridge)
+
+- **Cost**: $120/month vs $850/month at 10 RPS
+- **Simplicity**: Standard HTTP endpoints vs complex orchestration
+- **Debugging**: Familiar Lambda logs vs distributed traces
+- **MVP Focus**: Ship features fast, optimize later
+
+### Why Lambda per Resource (not per endpoint)
+
+- **Shared logic**: Connection pooling, utilities
+- **Better cold starts**: Fewer containers to manage
+- **Simpler deployment**: Less SAM template complexity
+- **Easier testing**: One function to test per resource
+
+### Why Cognito + HTTP API JWT (not custom auth)
+
+- **AWS-native**: No custom authentication code
+- **Built-in features**: Password policies, MFA, user management
+- **Stateless**: JWT tokens, no session management
+- **Integration**: Direct HTTP API authorization
+
+### Why Serverless (not Rails/containers)
+
+- **Target apps**: 20-user business apps + 10k→200k scale
+- **Economics**: Free tier for small apps, scales cost-effectively
+- **Maintenance**: AWS handles infrastructure complexity
+- **MVP Focus**: Build features, not infrastructure
+
+---
+
+> Use this file as the grounding for all future AI-assisted development sessions. The principles herein prioritize simplicity, maintainability, and development velocity over architectural complexity.
+
+**Remember: Simplicity beats cleverness. Shipping beats perfection. AWS-native beats custom solutions.**
