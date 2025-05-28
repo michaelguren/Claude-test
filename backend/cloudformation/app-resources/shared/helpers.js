@@ -39,14 +39,9 @@ const generateULID = () => {
   return ulid();
 };
 
-const generateResourceId = (prefix) => {
-  return `${prefix}_${ulid()}`;
-};
-
 module.exports = {
   getCurrentTimestamp,
   parseBody,
   buildUpdateExpression,
   generateULID,
-  generateResourceId,
 };
