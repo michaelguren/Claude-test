@@ -1,8 +1,8 @@
 version = 0.1
 [dev.deploy.parameters]
-stack_name = "minimalist-todo-20250526"
+stack_name = "minimalist-todo-20250528"
 resolve_s3 = true
-s3_prefix = "minimalist-todo-20250526"
+s3_prefix = "minimalist-todo-20250528"
 region = "us-east-1"
 profile = "dev"
 confirm_changeset = true
