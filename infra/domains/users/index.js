@@ -1,3 +1,6 @@
+// domains/users/index.js
+// Lambda handler entry point for user management
+
 const controller = require("./controller");
 
 exports.handler = async (event) => {

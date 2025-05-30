@@ -263,7 +263,7 @@ const {
   parseBody,
   errorResponse,
   successResponse,
-} = require("../../shared/helpers");
+} = require("./shared/helpers");
 const service = require("./service");
 
 const handleRequest = async (event) => {

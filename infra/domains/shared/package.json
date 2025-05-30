@@ -1,9 +1,0 @@
-{
-  "name": "shared-utilities",
-  "version": "1.0.0",
-  "description": "Shared utilities for app resources",
-  "main": "helpers.js",
-  "dependencies": {
-    "ulid": "^3.0.0"
-  }
-}

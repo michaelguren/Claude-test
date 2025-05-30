@@ -95,7 +95,7 @@
       "Type": "AWS::Serverless::Function",
       "Description": "Handles all user management operations",
       "Properties": {
-        "CodeUri": "domains/users/src",
+        "CodeUri": "domains/users/",
         "Handler": "index.handler",
         "Policies": [
           {

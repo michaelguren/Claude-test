@@ -123,7 +123,7 @@ const {
   parseBody,
   errorResponse,
   successResponse,
-} = require("../../shared/helpers");
+} = require("./shared/helpers");
 const service = require("./service");
 
 const handleRequest = async (event) => {
@@ -175,7 +175,7 @@ module.exports = { handleRequest };
 // domains/users/src/service.js - Business logic
 const repository = require("./repository");
 const validation = require("./validation");
-const { generateULID, getCurrentTimestamp } = require("../../shared/helpers");
+const { generateULID, getCurrentTimestamp } = require("./shared/helpers");
 
 const createUser = async (userData) => {
   // Validate input
@@ -209,7 +209,7 @@ module.exports = { createUser };
 
 ```javascript
 // domains/users/src/repository.js - Data access layer
-const { getItem, putItem, queryGSI } = require("../../shared/dynamodb");
+const { getItem, putItem, queryGSI } = require("./shared/dynamodb");
 
 const TABLE_NAME = process.env.TABLE_NAME;
 
