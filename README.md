@@ -305,6 +305,20 @@ This pattern provides:
 
 The application uses a single DynamoDB table with the following patterns:
 
+### Auth Domain Patterns
+
+- PK: `USER#<email>`
+- SK: `VERIFICATION#<ULID>`
+- TTL attribute: `TTL` (numeric UNIX timestamp)
+- Status tracking: e.g., `PENDING`, `VERIFIED`
+
+Access pattern:
+
+- Fetch latest verification code using:
+  - `PK = USER#<email>`
+  - `begins_with(SK, VERIFICATION#)`
+  - `Limit = 1`, `ScanIndexForward = false`
+
 ### User Entity Pattern:
 
 ```javascript

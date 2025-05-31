@@ -48,3 +48,39 @@ exports.verifyEmailHandler = async (event) => {
     return errorResponse(400, err.message);
   }
 };
+
+exports.registerHandler = async (event) => {
+  try {
+    const body = parseBody(event.body);
+    const email = body?.email?.toLowerCase()?.trim();
+    const password = body?.password?.trim();
+
+    if (!email || !password) {
+      return errorResponse(400, "Email and password are required");
+    }
+
+    await registerUser(email, password);
+    return successResponse(200, { message: "Verification code sent" });
+  } catch (err) {
+    console.error("Register Error:", err);
+    return errorResponse(400, err.message);
+  }
+};
+
+exports.loginHandler = async (event) => {
+  try {
+    const body = parseBody(event.body);
+    const email = body?.email?.toLowerCase()?.trim();
+    const password = body?.password?.trim();
+
+    if (!email || !password) {
+      return errorResponse(400, "Email and password are required");
+    }
+
+    const token = await loginUser(email, password);
+    return successResponse(200, { token });
+  } catch (err) {
+    console.error("Login Error:", err);
+    return errorResponse(401, err.message);
+  }
+};
