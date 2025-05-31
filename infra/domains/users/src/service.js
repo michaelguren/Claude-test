@@ -3,9 +3,9 @@
 
 const repository = require("./repository");
 const validation = require("./utils/validation");
-const { generateULID, getCurrentTimestamp } = require("./utils/helpers");
+const { getCurrentTimestamp, generateULID } = require("./utils-shared/helpers");
 const constants = require("./utils/constants");
-const { logInfo, logError } = require("./utils/logger");
+const { logInfo, logError } = require("./utils-shared/logger");
 
 const createUser = async (userData) => {
   try {

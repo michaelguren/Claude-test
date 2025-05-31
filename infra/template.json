@@ -87,7 +87,11 @@
         "PointInTimeRecoverySpecification": {
           "PointInTimeRecoveryEnabled": true
         },
-        "SSESpecification": { "SSEEnabled": true }
+        "SSESpecification": { "SSEEnabled": true },
+        "TimeToLiveSpecification": {
+          "AttributeName": "TTL",
+          "Enabled": true
+        }
       }
     },
 
@@ -148,7 +152,57 @@
         }
       }
     },
-
+    "AuthFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "domains/auth/",
+        "Handler": "index.handler",
+        "Environment": {
+          "Variables": {
+            "SOURCE_EMAIL": "noreply@danike.com"
+          }
+        },
+        "Events": {
+          "Signup": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/auth/signup",
+              "Method": "POST",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "VerifyEmail": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/auth/verify-email",
+              "Method": "POST",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          }
+        },
+        "Policies": [
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "dynamodb:GetItem",
+                  "dynamodb:PutItem",
+                  "dynamodb:UpdateItem",
+                  "dynamodb:DeleteItem"
+                ],
+                "Resource": { "Fn::GetAtt": ["MainTable", "Arn"] }
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["ses:SendEmail"],
+                "Resource": "*"
+              }
+            ]
+          }
+        ]
+      }
+    },
     "FrontendStack": {
       "Type": "AWS::Serverless::Application",
       "Description": "Frontend infrastructure (S3, CloudFront)",

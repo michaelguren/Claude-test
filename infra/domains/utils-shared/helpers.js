@@ -3,10 +3,7 @@
 
 const { ulid } = require("ulid");
 
-// Generate ULID using official library
-const generateULID = () => {
-  return ulid();
-};
+const generateULID = () => ulid();
 
 // Get current timestamp in ISO format
 const getCurrentTimestamp = () => {

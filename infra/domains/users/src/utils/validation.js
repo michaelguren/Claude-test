@@ -6,7 +6,7 @@ const {
   isValidULID,
   sanitizeString,
   isNotEmpty,
-} = require("./helpers");
+} = require("../utils-shared/helpers");
 const constants = require("./constants");
 
 const validateCreateUser = (userData) => {

@@ -6,37 +6,24 @@ const {
   parseBody,
   errorResponse,
   successResponse,
-} = require("./utils/helpers");
-const { logError, logInfo } = require("./utils/logger");
+} = require("./utils-shared/helpers");
+const { logError, logInfo } = require("./utils-shared/logger");
 
 const handleRequest = async (event) => {
   try {
-    const httpMethod = event.requestContext?.http?.method;
-    const pathParameters = event.pathParameters; // still undefined if not in route
+    const routeKey = event.routeKey;
 
-    switch (httpMethod) {
-      case "GET":
-        if (pathParameters && pathParameters.userId) {
-          return await getUser(pathParameters.userId);
-        } else {
-          return await listUsers();
-        }
-
-      case "POST":
+    switch (routeKey) {
+      case "GET /users":
+        return await listUsers();
+      case "GET /users/{userId}":
+        return await getUser(event.pathParameters.userId);
+      case "POST /users":
         return await createUser(event);
-
-      case "PUT":
-        if (!pathParameters?.userId) {
-          return errorResponse(400, "User ID is required for update");
-        }
-        return await updateUser(pathParameters.userId, event);
-
-      case "DELETE":
-        if (!pathParameters?.userId) {
-          return errorResponse(400, "User ID is required for delete");
-        }
-        return await deleteUser(pathParameters.userId);
-
+      case "PUT /users/{userId}":
+        return await updateUser(event.pathParameters.userId, event);
+      case "DELETE /users/{userId}":
+        return await deleteUser(event.pathParameters.userId);
       default:
         return errorResponse(405, "Method Not Allowed");
     }

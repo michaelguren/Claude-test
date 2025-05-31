@@ -4,7 +4,7 @@ set -euo pipefail
 # Configuration
 ADMIN_EMAIL="admin@yourcompany.com"
 ADMIN_NAME="System Administrator"
-ADMIN_ID="01HVN8T7G8K9M2Q3R4S5T6U7V8"
+ADMIN_ID="01JWFKDT327VGCAZB48VFGB1E0"
 STACK_NAME="minimalist-todo-20250528"
 AWS_REGION="us-east-1"
 AWS_PROFILE="dev"

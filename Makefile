@@ -11,6 +11,14 @@ AWS_CLI_FLAGS = --profile $(ENV) --region $(AWS_REGION)
 
 .PHONY: deploy deploy-backend deploy-backend-guided delete-backend build-backend deploy-frontend build-frontend delete-frontend help
 
+sync-utils-shared:
+	@echo "🔄 Syncing shared utils to domain src folders..."
+	@find infra/domains -type d -path '*/src/utils-shared' | while read target; do \
+		rm -rf "$$target"/*; \
+		cp -R infra/domains/utils-shared/* "$$target/"; \
+		echo "✅ Synced to $$target"; \
+	done
+
 # Deploy both backend and frontend
 deploy: deploy-backend deploy-frontend
 
@@ -24,7 +32,7 @@ deploy-backend-guided: build-backend
 	sam deploy --guided $(SAM_DEPLOY_FLAGS)
 
 # Backend SAM deploy
-deploy-backend: build-backend
+deploy-backend: sync-utils-shared build-backend
 	@echo "Deploying backend (SAM) to AWS profile $(ENV) in $(AWS_REGION)..."
 	sam deploy $(SAM_DEPLOY_FLAGS)
 

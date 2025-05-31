@@ -8,9 +8,9 @@ const {
   QueryCommand,
   ScanCommand,
   DeleteCommand,
-} = require("./utils/dynamodb");
+} = require("./utils-shared/dynamodb");
 const constants = require("./utils/constants");
-const { logError } = require("./utils/logger");
+const { logError } = require("./utils-shared/logger");
 
 const createUser = async (user) => {
   const dbUser = {
