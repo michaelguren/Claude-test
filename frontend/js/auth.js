@@ -1,22 +1,22 @@
 /**
- * Minimalist authentication module for Cognito hosted UI with passkeys
+ * Real authentication module for email/password auth
  * No external dependencies - pure vanilla JavaScript
  */
 
 // auth.js
 
 // Auth state and tokens
-const AUTH = {
+const AUTH_STATE = {
   isAuthenticated: false,
-  idToken: null,
-  accessToken: null,
-  tokenExpiry: null,
   user: null,
+  token: null,
+  tokenExpiry: null,
 };
 
 // Initialize auth state from storage
 function initAuth() {
-  console.log("Initializing auth module");
+  console.log("Initializing real auth module");
+
   try {
     const storedAuth = localStorage.getItem("auth");
     if (storedAuth) {
@@ -24,8 +24,9 @@ function initAuth() {
 
       // Check if token is expired
       if (authData.tokenExpiry && new Date(authData.tokenExpiry) > new Date()) {
-        Object.assign(AUTH, authData);
+        Object.assign(AUTH_STATE, authData);
         console.log("Auth restored from storage");
+        return true;
       } else {
         // Token expired, clear storage
         localStorage.removeItem("auth");
@@ -37,167 +38,153 @@ function initAuth() {
     localStorage.removeItem("auth");
   }
 
-  return AUTH.isAuthenticated;
-}
-
-// Extract tokens from URL hash after Cognito redirect
-function handleAuthCallback() {
-  if (window.location.hash) {
-    const params = new URLSearchParams(window.location.hash.substring(1));
-
-    const idToken = params.get("id_token");
-    const accessToken = params.get("access_token");
-    const expiresIn = params.get("expires_in");
-
-    if (idToken && accessToken) {
-      // Calculate expiry time
-      const tokenExpiry = new Date();
-      tokenExpiry.setSeconds(
-        tokenExpiry.getSeconds() + parseInt(expiresIn, 10)
-      );
-
-      // Extract user info from JWT
-      const user = parseJwt(idToken);
-
-      // Update auth state
-      AUTH.isAuthenticated = true;
-      AUTH.idToken = idToken;
-      AUTH.accessToken = accessToken;
-      AUTH.tokenExpiry = tokenExpiry;
-      AUTH.user = {
-        id: user.sub,
-        email: user.email,
-      };
-
-      // Save to storage
-      localStorage.setItem("auth", JSON.stringify(AUTH));
-
-      // Clear URL hash to prevent tokens in browser history
-      window.history.replaceState(null, "", window.location.pathname);
-
-      return true;
-    }
-  }
-
   return false;
 }
 
-// Parse JWT token to extract user info
-function parseJwt(token) {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
+// Send verification code to email
+async function sendVerificationCode(email) {
+  const response = await fetch(
+    `${window.APP_CONFIG.apiBaseUrl}/auth/send-code`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    }
+  );
 
-    return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error("Error parsing JWT:", error);
-    return {};
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to send verification code");
   }
+
+  return response.json();
 }
 
-// Redirect to Cognito Hosted UI for sign-in or use mock auth for local development
-function signIn() {
-  const config = window.APP_CONFIG || {};
-  
-  // Use mock authentication for local environment only
-  // For AWS deployed app (environment = 'aws' or anything other than 'local'), use real Cognito auth
-  if (config.environment === 'local') {
-    console.log("Using mock authentication for local development");
-    
-    // Create a mock user and token
-    const now = new Date();
-    const expiryTime = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
+// Register new user
+async function register(email, password) {
+  const response = await fetch(
+    `${window.APP_CONFIG.apiBaseUrl}/auth/register`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }
+  );
 
-    AUTH.isAuthenticated = true;
-    AUTH.idToken = "mock-id-token";
-    AUTH.accessToken = "mock-access-token";
-    AUTH.tokenExpiry = expiryTime;
-    AUTH.user = {
-      id: "mock-user-" + Math.random().toString(36).substring(2, 10),
-      email: "mockuser@example.com",
-    };
-
-    // Save to storage
-    localStorage.setItem("auth", JSON.stringify(AUTH));
-
-    // Reload the page to update UI
-    window.location.reload();
-    return;
-  }
-  
-  // For AWS hosted environments, use Cognito
-  const cognitoUrl = config.cognitoHostedUiUrl;
-  if (!cognitoUrl) {
-    console.error("Cognito Hosted UI URL not configured for AWS environment");
-    return;
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Registration failed");
   }
 
-  console.log("Using real Cognito authentication on AWS");
-  // Redirect to Cognito hosted UI
-  window.location.href = cognitoUrl;
+  return response.json();
 }
 
-// Sign out the user
+// Complete registration with verification code
+async function completeRegistration(email, code) {
+  const response = await fetch(
+    `${window.APP_CONFIG.apiBaseUrl}/auth/complete-registration`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Email verification failed");
+  }
+
+  return response.json();
+}
+
+// Login with email/password
+async function login(email, password) {
+  const response = await fetch(`${window.APP_CONFIG.apiBaseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Login failed");
+  }
+
+  const result = await response.json();
+
+  // Store auth state
+  AUTH_STATE.isAuthenticated = true;
+  AUTH_STATE.user = result.user;
+  AUTH_STATE.token = result.token;
+  AUTH_STATE.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  // Save to localStorage
+  localStorage.setItem("auth", JSON.stringify(AUTH_STATE));
+
+  console.log("Login successful, auth state saved");
+  return result;
+}
+
+// Sign out
 function signOut() {
-  // Clear auth state
-  AUTH.isAuthenticated = false;
-  AUTH.idToken = null;
-  AUTH.accessToken = null;
-  AUTH.tokenExpiry = null;
-  AUTH.user = null;
-
-  // Clear storage
+  AUTH_STATE.isAuthenticated = false;
+  AUTH_STATE.user = null;
+  AUTH_STATE.token = null;
+  AUTH_STATE.tokenExpiry = null;
   localStorage.removeItem("auth");
-
-  // Redirect to Cognito logout if configured
-  const config = window.APP_CONFIG || {};
-  if (config.cognitoLogoutUrl) {
-    window.location.href = config.cognitoLogoutUrl;
-  } else {
-    // Just go to home page
-    window.location.href = "/";
-  }
+  console.log("User signed out");
 }
 
-// Get current user ID
-function getUserId() {
-  return AUTH.user?.id || null;
-}
-
-// Check if user is authenticated
+// Check if authenticated
 function isAuthenticated() {
-  // Check if token is expired
-  if (AUTH.tokenExpiry && new Date(AUTH.tokenExpiry) <= new Date()) {
-    // Token expired, clear auth state
-    signOut();
-    return false;
-  }
-
-  return AUTH.isAuthenticated;
+  return (
+    AUTH_STATE.isAuthenticated &&
+    AUTH_STATE.tokenExpiry &&
+    new Date(AUTH_STATE.tokenExpiry) > new Date()
+  );
 }
 
 // Get access token for API calls
 function getAccessToken() {
-  if (!isAuthenticated()) {
-    return null;
-  }
+  return isAuthenticated() ? AUTH_STATE.token : null;
+}
 
-  return AUTH.accessToken;
+// Get current user
+function getCurrentUser() {
+  return isAuthenticated() ? AUTH_STATE.user : null;
+}
+
+// Get user ID (for compatibility with existing code)
+function getUserId() {
+  const user = getCurrentUser();
+  return user ? user.id : null;
+}
+
+// Trigger sign in flow (will be used by UI buttons)
+function signIn() {
+  // This will be handled by the UI forms
+  // For now, just log that sign in was requested
+  console.log("Sign in requested - UI should show login form");
+}
+
+// Not used in email/password flow, but keeping for compatibility
+function handleCallback() {
+  return false;
 }
 
 // Export public API
 window.Auth = {
   init: initAuth,
-  handleCallback: handleAuthCallback,
-  signIn: signIn,
-  signOut: signOut,
-  isAuthenticated: isAuthenticated,
-  getUserId: getUserId,
-  getAccessToken: getAccessToken,
+  sendVerificationCode,
+  register,
+  completeRegistration,
+  login,
+  signIn,
+  signOut,
+  isAuthenticated,
+  getAccessToken,
+  getCurrentUser,
+  getUserId,
+  handleCallback,
 };

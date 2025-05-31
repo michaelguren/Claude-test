@@ -15,6 +15,17 @@ repomix . \
  -o ~/Desktop/repomix-output-minimalist-todo.txt
 ```
 
+## JWT Setup (one-time per Account [we are using AWS accounts for environments])
+
+```
+aws ssm put-parameter \
+ --name "/minimalist-todo/jwt-secret" \
+ --value "$(openssl rand -base64 32)" \
+ --type "SecureString" \
+ --profile dev \
+ --region us-east-1
+```
+
 ## 🔁 Shared Backend Architecture
 
 - All Lambda functions are declared in a **single consolidated SAM template**: `infra/template.json`
@@ -83,7 +94,7 @@ Each domain defines its own key patterns and access strategies.
 
 ## 🔐 AuthFunction Pattern
 
-Implements passwordless signup using email + OTP, with a future path toward Passkeys.
+Implements passwordless signup using email + OTP, with a future path toward Passkeys. Taking patterns from: https://firtman.github.io/authentication/
 
 ### Table Design
 

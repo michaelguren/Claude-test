@@ -3,75 +3,213 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Minimalistt TODO App</title>
+    <title>Minimalist TODO App</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <div class="container">
       <header>
         <h1>Minimalist TODO</h1>
-        <p class="subtitle">Built with zero dependencies</p>
+        <p class="subtitle">Built with HTML5, CSS3, and minimal JavaScript</p>
       </header>
 
       <!-- Authentication Section -->
-      <section id="auth-section" class="auth-section">
-        <div class="auth-card">
-          <h2>Welcome</h2>
-          <p>Sign in with your account to access your TODOs.</p>
-          <button id="sign-in-button" class="button primary">Sign In</button>
-          <p class="note">
-            Uses passkeys for secure, passwordless authentication
+      <section id="auth-section">
+        <!-- Login Step (default) -->
+        <div id="login-step" class="auth-step active card">
+          <h2>Sign In</h2>
+          <form id="login-form" novalidate>
+            <div class="form-group">
+              <label for="login-email">Email Address</label>
+              <input
+                type="email"
+                id="login-email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input
+                type="password"
+                id="login-password"
+                name="password"
+                required
+                minlength="8"
+                autocomplete="current-password"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%">
+              Sign In
+            </button>
+          </form>
+
+          <p class="auth-switch">
+            Don't have an account?
+            <a href="#" onclick="showAuthStep('register'); return false;"
+              >Create one</a
+            >
           </p>
+
+          <div id="login-error" class="error hidden"></div>
+        </div>
+
+        <!-- Register Step -->
+        <div id="register-step" class="auth-step card">
+          <h2>Create Account</h2>
+          <form id="register-form" novalidate>
+            <div class="form-group">
+              <label for="register-email">Email Address</label>
+              <input
+                type="email"
+                id="register-email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="register-password">Password</label>
+              <input
+                type="password"
+                id="register-password"
+                name="password"
+                required
+                minlength="8"
+                autocomplete="new-password"
+                placeholder="At least 8 characters"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="register-password-confirm">Confirm Password</label>
+              <input
+                type="password"
+                id="register-password-confirm"
+                name="passwordConfirm"
+                required
+                minlength="8"
+                autocomplete="new-password"
+                placeholder="Confirm your password"
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%">
+              Create Account
+            </button>
+          </form>
+
+          <p class="auth-switch">
+            Already have an account?
+            <a href="#" onclick="showAuthStep('login'); return false;"
+              >Sign in</a
+            >
+          </p>
+
+          <div id="register-error" class="error hidden"></div>
+        </div>
+
+        <!-- Verification Step -->
+        <div id="verification-step" class="auth-step card">
+          <h2>Verify Your Email</h2>
+          <p>
+            We sent a 6-digit code to <strong id="verification-email"></strong>
+          </p>
+
+          <form id="verification-form" novalidate>
+            <div class="form-group">
+              <label for="verification-code">Verification Code</label>
+              <input
+                type="text"
+                id="verification-code"
+                name="code"
+                required
+                pattern="[0-9]{6}"
+                maxlength="6"
+                placeholder="Enter 6-digit code"
+                autocomplete="one-time-code"
+                style="
+                  text-align: center;
+                  font-size: 1.2rem;
+                  letter-spacing: 0.2rem;
+                "
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%">
+              Verify Email
+            </button>
+          </form>
+
+          <p class="auth-switch">
+            <a href="#" onclick="resendCode(); return false;">Resend code</a> |
+            <a href="#" onclick="showAuthStep('register'); return false;"
+              >Back to registration</a
+            >
+          </p>
+
+          <div id="verification-error" class="error hidden"></div>
         </div>
       </section>
 
-      <!-- Main App Section (hidden until authenticated) -->
-      <section id="app-section" class="app-section" style="display: none">
+      <!-- Main App Section -->
+      <section id="app-section" class="hidden">
         <div class="user-bar">
-          <span id="user-info"></span>
-          <button id="sign-out-button" class="button small">Sign Out</button>
-        </div>
-
-        <!-- Todo Input Form -->
-        <form id="todo-form" class="todo-form">
-          <input
-            type="text"
-            id="todo-input"
-            class="todo-input"
-            placeholder="What needs to be done?"
-            required
-          />
-          <button type="submit" class="button add-button">Add</button>
-        </form>
-
-        <!-- Filters -->
-        <div class="filters">
-          <button class="filter-button active" data-filter="all">All</button>
-          <button class="filter-button" data-filter="active">Active</button>
-          <button class="filter-button" data-filter="completed">
-            Completed
+          <span id="user-info">Welcome!</span>
+          <button id="sign-out-button" class="btn btn-secondary btn-small">
+            Sign Out
           </button>
         </div>
 
-        <!-- Todo List -->
+        <div class="card">
+          <form id="todo-form" class="todo-form">
+            <input
+              type="text"
+              id="todo-input"
+              class="todo-input"
+              placeholder="What needs to be done?"
+              required
+              maxlength="200"
+            />
+            <button type="submit" class="btn btn-primary">Add</button>
+          </form>
+
+          <div class="filters">
+            <button type="button" class="filter-btn active" data-filter="all">
+              All
+            </button>
+            <button type="button" class="filter-btn" data-filter="active">
+              Active
+            </button>
+            <button type="button" class="filter-btn" data-filter="completed">
+              Completed
+            </button>
+          </div>
+        </div>
+
         <ul id="todo-list" class="todo-list">
-          <li class="empty">Your todos will appear here.</li>
+          <li class="todo-item" style="text-align: center; opacity: 0.6">
+            Your todos will appear here
+          </li>
         </ul>
       </section>
 
       <footer>
         <p>
-          Built with <span class="heart">♥</span> using minimalist principles
+          Built with <span class="heart">♥</span> using HTML5, CSS3, and minimal
+          JavaScript
         </p>
-        <p>No frameworks, no dependencies, just pure web technologies</p>
+        <p>No frameworks, no dependencies, just web standards</p>
       </footer>
     </div>
 
-    <!-- Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/mock-api.js"></script>
-    <script src="js/api.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

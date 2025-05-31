@@ -1,10 +1,12 @@
+// infra/domains/todos/index.js
+
 const controller = require("./src/controller");
 const { withCors } = require("./src/utils-shared/cors");
 
-const usersHandler = async (event) => {
-  console.log("Received event:", JSON.stringify(event, null, 2));
+const todosHandler = async (event) => {
+  console.log("TODOs event:", JSON.stringify(event, null, 2));
   return await controller.handleRequest(event);
 };
 
 // Export the handler wrapped with CORS handling
-exports.handler = withCors(usersHandler);
+exports.handler = withCors(todosHandler);

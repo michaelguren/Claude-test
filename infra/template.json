@@ -38,9 +38,7 @@
       "Description": "Shared HTTP API Gateway for all domains",
       "Properties": {
         "CorsConfiguration": {
-          "AllowCredentials": {
-            "Fn::If": ["IsProduction", true, { "Ref": "AWS::NoValue" }]
-          },
+          "AllowCredentials": { "Fn::If": ["IsProduction", true, false] },
           "AllowHeaders": ["Content-Type", "Authorization"],
           "AllowMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
           "AllowOrigins": {
@@ -109,6 +107,22 @@
           }
         ],
         "Events": {
+          "UsersOptions": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/users",
+              "Method": "OPTIONS",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "UserOptionsWithId": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/users/{userId}",
+              "Method": "OPTIONS",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
           "CreateUser": {
             "Type": "HttpApi",
             "Properties": {
@@ -154,12 +168,14 @@
     },
     "AuthFunction": {
       "Type": "AWS::Serverless::Function",
+      "Description": "Handles authentication operations (register, login, verify)",
       "Properties": {
         "CodeUri": "domains/auth/",
         "Handler": "index.handler",
         "Environment": {
           "Variables": {
-            "SOURCE_EMAIL": "noreply@danike.com"
+            "SOURCE_EMAIL": "noreply@danike.com",
+            "JWT_SECRET_PARAMETER_NAME": "/minimalist-todo/jwt-secret"
           }
         },
         "Events": {
@@ -171,11 +187,27 @@
               "ApiId": { "Ref": "HttpApi" }
             }
           },
-          "VerifyEmail": {
+          "VerifySignup": {
             "Type": "HttpApi",
             "Properties": {
-              "Path": "/auth/verify-email",
+              "Path": "/auth/verify-signup",
               "Method": "POST",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "Login": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/auth/login",
+              "Method": "POST",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "AuthOptions": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/auth/{proxy+}",
+              "Method": "OPTIONS",
               "ApiId": { "Ref": "HttpApi" }
             }
           }
@@ -189,7 +221,8 @@
                   "dynamodb:GetItem",
                   "dynamodb:PutItem",
                   "dynamodb:UpdateItem",
-                  "dynamodb:DeleteItem"
+                  "dynamodb:DeleteItem",
+                  "dynamodb:Query"
                 ],
                 "Resource": { "Fn::GetAtt": ["MainTable", "Arn"] }
               },
@@ -197,6 +230,13 @@
                 "Effect": "Allow",
                 "Action": ["ses:SendEmail"],
                 "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["ssm:GetParameter"],
+                "Resource": {
+                  "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/minimalist-todo/jwt-secret"
+                }
               }
             ]
           }

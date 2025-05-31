@@ -1,24 +1,24 @@
 /* 
   Minimalist TODO Application CSS
-  No external dependencies or frameworks - pure CSS
+  HTML5 and CSS-first approach - minimal JavaScript required
 */
 
-/* Base Styles */
+/* CSS Custom Properties for consistent theming */
 :root {
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-color: #f9fafb;
-  --card-bg: #ffffff;
-  --text-color: #1f2937;
-  --light-text: #6b7280;
-  --border-color: #e5e7eb;
-  --success-color: #10b981;
-  --danger-color: #ef4444;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --radius: 6px;
-  --transition: all 0.2s ease-in-out;
+  --primary-color: #3498db;
+  --primary-hover: #2980b9;
+  --danger-color: #e74c3c;
+  --success-color: #27ae60;
+  --warning-color: #f39c12;
+  --text-color: #2c3e50;
+  --bg-color: #ecf0f1;
+  --border-color: #bdc3c7;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --radius: 4px;
+  --spacing: 1rem;
 }
 
+/* Reset and base styles */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -26,186 +26,298 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  background-color: var(--bg-color);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
   color: var(--text-color);
-  line-height: 1.5;
+  background: var(--bg-color);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .container {
   max-width: 600px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: var(--spacing);
+  flex: 1;
 }
 
 /* Typography */
-h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+header {
   text-align: center;
+  margin-bottom: calc(var(--spacing) * 2);
+}
+
+h1 {
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  font-size: 2.5rem;
 }
 
 h2 {
+  color: var(--text-color);
+  margin-bottom: var(--spacing);
   font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
 }
 
 .subtitle {
-  text-align: center;
-  color: var(--light-text);
-  margin-bottom: 2rem;
-}
-
-/* Header and Footer */
-header {
-  margin-bottom: 2rem;
-}
-
-footer {
-  margin-top: 3rem;
-  text-align: center;
-  color: var(--light-text);
-  font-size: 0.875rem;
-}
-
-footer p {
-  margin-bottom: 0.5rem;
-}
-
-.heart {
-  color: var(--danger-color);
-}
-
-/* Buttons */
-.button {
-  display: inline-block;
-  background-color: var(--primary-color);
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: var(--transition);
-}
-
-.button:hover {
-  background-color: var(--primary-hover);
-}
-
-.button.small {
-  font-size: 0.875rem;
-  padding: 0.25rem 0.75rem;
-}
-
-.button.primary {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 1rem;
-}
-
-.filter-button {
-  background-color: transparent;
   color: var(--text-color);
-  border: 1px solid var(--border-color);
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: var(--transition);
+  opacity: 0.7;
+  font-size: 1rem;
 }
 
-.filter-button:hover {
-  background-color: var(--border-color);
-}
-
-.filter-button.active {
-  background-color: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-/* Auth Section */
-.auth-section {
-  margin: 2rem 0;
-}
-
-.auth-card {
-  background-color: var(--card-bg);
-  padding: 2rem;
+/* Card-based layout */
+.card {
+  background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  padding: calc(var(--spacing) * 1.5);
+  margin-bottom: var(--spacing);
+}
+
+/* Form styling using HTML5 validation */
+.form-group {
+  margin-bottom: var(--spacing);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius);
+  font-size: 16px; /* Prevents zoom on iOS */
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  background: white;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* HTML5 validation styling */
+input:invalid:not(:focus):not(:placeholder-shown) {
+  border-color: var(--danger-color);
+}
+
+input:valid:not(:focus):not(:placeholder-shown) {
+  border-color: var(--success-color);
+}
+
+/* Button system */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
   text-align: center;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
-.note {
-  font-size: 0.875rem;
-  color: var(--light-text);
-  margin-top: 1rem;
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
 }
 
-/* App Section */
-.app-section {
-  margin: 2rem 0;
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
+.btn-secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Loading state using CSS */
+.btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error and success messages */
+.error {
+  color: var(--danger-color);
+  background: rgba(231, 76, 60, 0.1);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  margin-top: 0.5rem;
+  border-left: 4px solid var(--danger-color);
+  font-size: 0.9rem;
+}
+
+.success {
+  color: var(--success-color);
+  background: rgba(39, 174, 96, 0.1);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  margin-top: 0.5rem;
+  border-left: 4px solid var(--success-color);
+  font-size: 0.9rem;
+}
+
+/* Show/hide using CSS classes */
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block;
+}
+
+/* Auth flow steps */
+.auth-step {
+  display: none;
+}
+
+.auth-step.active {
+  display: block;
+}
+
+/* Auth switch links */
+.auth-switch {
+  text-align: center;
+  margin-top: var(--spacing);
+  color: var(--text-color);
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.auth-switch a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* User bar */
 .user-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
-  background-color: var(--card-bg);
-  padding: 0.75rem 1rem;
+  margin-bottom: var(--spacing);
+  padding: var(--spacing);
+  background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
-/* Todo Form */
+#user-info {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+/* Todo form */
 .todo-form {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing);
 }
 
 .todo-input {
-  flex-grow: 1;
-  padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  font-size: 1rem;
-  transition: var(--transition);
+  flex: 1;
+  margin: 0; /* Override form-group margin */
 }
 
-.todo-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-}
-
-.add-button {
-  padding: 0.75rem 1rem;
-}
-
-/* Filters */
+/* Filter buttons */
 .filters {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing);
+  justify-content: center;
 }
 
-/* Todo List */
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--border-color);
+  background: white;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.filter-btn.active,
+.filter-btn:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: white;
+}
+
+/* Todo list */
 .todo-list {
-  background-color: var(--card-bg);
+  list-style: none;
+  background: white;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
-  list-style: none;
 }
 
 .todo-item {
@@ -213,72 +325,122 @@ footer p {
   align-items: center;
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
-  transition: var(--transition);
+  gap: 0.75rem;
+  transition: background-color 0.2s ease;
 }
 
 .todo-item:last-child {
   border-bottom: none;
 }
 
-.todo-checkbox {
-  margin-right: 1rem;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
+.todo-item:hover {
+  background-color: #f8f9fa;
 }
 
-.todo-text {
-  flex-grow: 1;
-  transition: var(--transition);
+.todo-item.completed {
+  opacity: 0.6;
 }
 
 .todo-item.completed .todo-text {
   text-decoration: line-through;
-  color: var(--light-text);
 }
 
-.todo-delete {
-  background: none;
-  border: none;
-  color: var(--light-text);
-  font-size: 1.25rem;
+.todo-text {
+  flex: 1;
+  color: var(--text-color);
+}
+
+.todo-checkbox {
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  transition: var(--transition);
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 0.5rem;
 }
 
-.todo-delete:hover {
-  color: var(--danger-color);
+.delete-btn {
+  background: var(--danger-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: inherit;
+  transition: background-color 0.2s ease;
 }
 
-.empty,
-.loading,
-.error {
-  padding: 1.5rem;
+.delete-btn:hover {
+  background: #c0392b;
+}
+
+/* Footer */
+footer {
   text-align: center;
-  color: var(--light-text);
+  padding: calc(var(--spacing) * 2);
+  color: var(--text-color);
+  opacity: 0.7;
+  font-size: 0.9rem;
 }
 
-.error {
+.heart {
   color: var(--danger-color);
+  animation: heartbeat 1.5s ease-in-out infinite;
 }
 
-/* Responsive Design */
-@media (max-width: 480px) {
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.5rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
   .todo-form {
     flex-direction: column;
   }
 
-  .add-button {
-    width: 100%;
+  .filters {
+    flex-wrap: wrap;
   }
 
-  .filters {
-    justify-content: center;
+  .user-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
   }
+}
+
+/* Focus management for accessibility */
+input:focus,
+button:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for better UX */
+.auth-step,
+#app-section,
+#auth-section {
+  transition: opacity 0.3s ease;
+}
+
+/* Link styling */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }

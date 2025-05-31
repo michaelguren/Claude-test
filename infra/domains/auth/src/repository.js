@@ -1,127 +1,196 @@
-// domains/auth/src/repository.js
+// infra/domains/auth/src/repository.js
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
   DynamoDBDocumentClient,
   PutCommand,
-  QueryCommand,
-  UpdateCommand,
-  DeleteCommand,
   GetCommand,
+  QueryCommand,
+  DeleteCommand,
+  UpdateCommand,
 } = require("@aws-sdk/lib-dynamodb");
+const { generateULID } = require("./utils-shared/helpers");
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const TABLE = process.env.TABLE_NAME;
+const tableName = process.env.TABLE_NAME;
 
-const {
-  USER_PREFIX,
-  VERIFICATION_CODE_PREFIX,
-  USER_PROFILE_SUFFIX,
-  USER_STATUS_PENDING,
-  USER_STATUS_ACTIVE,
-} = require("./utils/constants");
-
-exports.putVerificationCode = async (email, code, ttlSeconds) => {
+exports.putVerificationCode = async (email, codeId, code, ttlSeconds) => {
   const now = new Date().toISOString();
+
+  const item = {
+    PK: `USER#${email}`,
+    SK: `VERIFICATION#${codeId}`,
+    codeId,
+    code,
+    email,
+    createdAt: now,
+    TTL: ttlSeconds, // DynamoDB TTL attribute
+  };
 
   await client.send(
     new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: `${USER_PREFIX}${email}`,
-        SK: `${VERIFICATION_CODE_PREFIX}${code}`,
-        email,
-        code,
-        createdAt: now,
-        updatedAt: now,
-        TTL: Math.floor(Date.now() / 1000) + ttlSeconds,
-      },
+      TableName: tableName,
+      Item: item,
     })
   );
 };
 
-exports.getVerificationCode = async (
-  email,
-  prefix = VERIFICATION_CODE_PREFIX
-) => {
-  const pk = `${USER_PREFIX}${email}`;
-
-  const res = await client.send(
+exports.getVerificationCode = async (email, code) => {
+  // Query for the most recent verification code for this email
+  const result = await client.send(
     new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+      TableName: tableName,
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
       ExpressionAttributeValues: {
-        ":pk": pk,
-        ":prefix": prefix,
+        ":pk": `USER#${email}`,
+        ":sk": "VERIFICATION#",
       },
-      ScanIndexForward: false,
-      Limit: 1,
+      ScanIndexForward: false, // Most recent first
+      Limit: 5, // Check last few codes
     })
   );
 
-  return res.Items?.[0] || null;
+  // Find matching code
+  const matchingItem = result.Items?.find((item) => item.code === code);
+
+  if (!matchingItem) return null;
+
+  // Check if code is expired
+  if (matchingItem && matchingItem.TTL < Math.floor(Date.now() / 1000)) {
+    return null; // Expired
+  }
+
+  return matchingItem;
 };
 
-exports.deleteVerificationCode = async (email, code) => {
+exports.deleteVerificationCode = async (email, codeId) => {
   await client.send(
     new DeleteCommand({
-      TableName: TABLE,
+      TableName: tableName,
       Key: {
-        PK: `${USER_PREFIX}${email}`,
-        SK: `${VERIFICATION_CODE_PREFIX}${code}`,
+        PK: `USER#${email}`,
+        SK: `VERIFICATION#${codeId}`,
       },
     })
   );
 };
 
 exports.getUserByEmail = async (email) => {
-  const res = await client.send(
+  const result = await client.send(
     new GetCommand({
-      TableName: TABLE,
+      TableName: tableName,
       Key: {
-        PK: `${USER_PREFIX}${email}`,
-        SK: USER_PROFILE_SUFFIX,
+        PK: `USER#${email}`,
+        SK: "PROFILE",
       },
     })
   );
 
-  return res.Item || null;
+  return result.Item || null;
 };
 
-exports.createPendingUser = async (email) => {
+exports.createPendingUser = async (email, passwordData) => {
+  const userId = generateULID();
   const now = new Date().toISOString();
+
+  const user = {
+    PK: `USER#${email}`,
+    SK: "PROFILE",
+    id: userId,
+    email,
+    status: "PENDING",
+    salt: passwordData.salt,
+    hash: passwordData.hash,
+    createdAt: now,
+    updatedAt: now,
+    // GSI for email lookups (if needed)
+    GSI1PK: `EMAIL#${email}`,
+    GSI1SK: "LOOKUP",
+  };
 
   await client.send(
     new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: `${USER_PREFIX}${email}`,
-        SK: USER_PROFILE_SUFFIX,
-        email,
-        status: USER_STATUS_PENDING,
-        emailVerified: false,
-        createdAt: now,
-        updatedAt: now,
+      TableName: tableName,
+      Item: user,
+      ConditionExpression: "attribute_not_exists(PK)", // Prevent overwrites
+    })
+  );
+
+  return user;
+};
+
+exports.createVerifiedUser = async (email, passwordData) => {
+  const userId = generateULID();
+  const now = new Date().toISOString();
+
+  const user = {
+    PK: `USER#${email}`,
+    SK: "PROFILE",
+    id: userId,
+    email,
+    name: email.split("@")[0], // Default name from email
+    role: "USER",
+    status: "ACTIVE", // Already verified
+    salt: passwordData.salt,
+    hash: passwordData.hash,
+    emailVerified: true,
+    createdAt: now,
+    updatedAt: now,
+    // GSI for email lookups
+    GSI1PK: `EMAIL#${email}`,
+    GSI1SK: "LOOKUP",
+  };
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: user,
+      ConditionExpression: "attribute_not_exists(PK)", // Prevent overwrites
+    })
+  );
+
+  return user;
+};
+
+exports.markUserVerified = async (email) => {
+  const now = new Date().toISOString();
+
+  await client.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        PK: `USER#${email}`,
+        SK: "PROFILE",
       },
-      ConditionExpression: "attribute_not_exists(PK)",
+      UpdateExpression:
+        "SET #status = :status, emailVerified = :verified, updatedAt = :now",
+      ExpressionAttributeNames: {
+        "#status": "status",
+      },
+      ExpressionAttributeValues: {
+        ":status": "ACTIVE",
+        ":verified": true,
+        ":now": new Date().toISOString(),
+      },
     })
   );
 };
 
-exports.markUserVerified = async (email) => {
+exports.updateUserPassword = async (email, passwordData) => {
+  const now = new Date().toISOString();
+
   await client.send(
     new UpdateCommand({
-      TableName: TABLE,
+      TableName: tableName,
       Key: {
-        PK: `${USER_PREFIX}${email}`,
-        SK: USER_PROFILE_SUFFIX,
+        PK: `USER#${email}`,
+        SK: "PROFILE",
       },
-      UpdateExpression:
-        "SET emailVerified = :true, status = :status, updatedAt = :now",
+      UpdateExpression: "SET salt = :salt, hash = :hash, updatedAt = :now",
       ExpressionAttributeValues: {
-        ":true": true,
-        ":status": USER_STATUS_ACTIVE,
-        ":now": new Date().toISOString(),
+        ":salt": passwordData.salt,
+        ":hash": passwordData.hash,
+        ":now": now,
       },
     })
   );
