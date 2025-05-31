@@ -1,11 +1,10 @@
 // domains/users/service.js
 // Business logic for user management
 
+const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
+const { logError, logInfo } = require("./utils-shared/logger");
 const repository = require("./repository");
 const validation = require("./utils/validation");
-const { getCurrentTimestamp, generateULID } = require("./utils-shared/helpers");
-const constants = require("./utils/constants");
-const { logInfo, logError } = require("./utils-shared/logger");
 
 const createUser = async (userData) => {
   try {
@@ -23,8 +22,8 @@ const createUser = async (userData) => {
       id: generateULID(),
       email: validatedData.email,
       name: validatedData.name,
-      role: validatedData.role || constants.DEFAULT_ROLE,
-      status: constants.DEFAULT_STATUS,
+      role: validatedData.role || "USER",
+      status: "ACTIVE",
       createdAt: getCurrentTimestamp(),
       updatedAt: getCurrentTimestamp(),
     };

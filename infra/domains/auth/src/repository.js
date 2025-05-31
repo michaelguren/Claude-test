@@ -1,197 +1,303 @@
 // infra/domains/auth/src/repository.js
+// Data access layer for authentication operations
+// Updated to use USER#<ulid> pattern instead of USER#<email>
 
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
-  DynamoDBDocumentClient,
-  PutCommand,
-  GetCommand,
-  QueryCommand,
-  DeleteCommand,
-  UpdateCommand,
-} = require("@aws-sdk/lib-dynamodb");
-const { generateULID } = require("./utils-shared/helpers");
+  putItem,
+  getItem,
+  listItems,
+  updateItem,
+  deleteItem,
+  queryGSI,
+} = require("./utils-shared/dynamodb");
+const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
+const { logInfo, logError } = require("./utils-shared/logger");
+const constants = require("./utils/constants");
 
-const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const tableName = process.env.TABLE_NAME;
-
+/**
+ * Store verification code for email verification
+ * Uses USER#<email> as PK during signup process only
+ */
 exports.putVerificationCode = async (email, codeId, code, ttlSeconds) => {
-  const now = new Date().toISOString();
+  try {
+    const now = getCurrentTimestamp();
+    const item = {
+      PK: `${constants.USER_PREFIX}${email}`, // Keep email-based during verification
+      SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
+      codeId,
+      code,
+      email,
+      createdAt: now,
+      TTL: ttlSeconds, // DynamoDB TTL attribute
+    };
 
-  const item = {
-    PK: `USER#${email}`,
-    SK: `VERIFICATION#${codeId}`,
-    codeId,
-    code,
-    email,
-    createdAt: now,
-    TTL: ttlSeconds, // DynamoDB TTL attribute
-  };
-
-  await client.send(
-    new PutCommand({
-      TableName: tableName,
-      Item: item,
-    })
-  );
-};
-
-exports.getVerificationCode = async (email, code) => {
-  // Query for the most recent verification code for this email
-  const result = await client.send(
-    new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
-      ExpressionAttributeValues: {
-        ":pk": `USER#${email}`,
-        ":sk": "VERIFICATION#",
-      },
-      ScanIndexForward: false, // Most recent first
-      Limit: 5, // Check last few codes
-    })
-  );
-
-  // Find matching code
-  const matchingItem = result.Items?.find((item) => item.code === code);
-
-  if (!matchingItem) return null;
-
-  // Check if code is expired
-  if (matchingItem && matchingItem.TTL < Math.floor(Date.now() / 1000)) {
-    return null; // Expired
+    await putItem(item);
+    logInfo("Repository.putVerificationCode", "Verification code stored", {
+      email,
+      codeId,
+    });
+  } catch (error) {
+    logError("Repository.putVerificationCode", error, { email, codeId });
+    throw error;
   }
-
-  return matchingItem;
 };
 
+/**
+ * Get verification code for validation
+ * Uses USER#<email> as PK during signup process
+ */
+exports.getVerificationCode = async (email, code) => {
+  try {
+    // Query for verification codes for this email
+    const result = await listItems(
+      `${constants.USER_PREFIX}${email}`,
+      constants.VERIFICATION_CODE_PREFIX,
+      {
+        scanIndexForward: false, // Most recent first
+        limit: 5, // Check last few codes
+      }
+    );
+
+    // Find matching code
+    const matchingItem = result.Items?.find((item) => item.code === code);
+    if (!matchingItem) return null;
+
+    // Check if code is expired
+    if (matchingItem && matchingItem.TTL < Math.floor(Date.now() / 1000)) {
+      return null; // Expired
+    }
+
+    return matchingItem;
+  } catch (error) {
+    logError("Repository.getVerificationCode", error, { email });
+    throw error;
+  }
+};
+
+/**
+ * Delete verification code after use
+ */
 exports.deleteVerificationCode = async (email, codeId) => {
-  await client.send(
-    new DeleteCommand({
-      TableName: tableName,
+  if (!codeId) {
+    logError("Repository.deleteVerificationCode", "Missing codeId", { email });
+    return;
+  }
+  try {
+    const params = {
       Key: {
-        PK: `USER#${email}`,
-        SK: `VERIFICATION#${codeId}`,
+        PK: `${constants.USER_PREFIX}${email}`,
+        SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
       },
-    })
-  );
+    };
+
+    await deleteItem(params);
+    logInfo("Repository.deleteVerificationCode", "Verification code deleted", {
+      email,
+      codeId,
+    });
+  } catch (error) {
+    logError("Repository.deleteVerificationCode", error, { email, codeId });
+    throw error;
+  }
 };
 
+/**
+ * Get user by email (using GSI1)
+ * Updated to work with USER#<ulid> pattern
+ */
 exports.getUserByEmail = async (email) => {
-  const result = await client.send(
-    new GetCommand({
-      TableName: tableName,
-      Key: {
-        PK: `USER#${email}`,
-        SK: "PROFILE",
-      },
-    })
-  );
+  try {
+    const result = await queryGSI(
+      constants.GSI1_NAME,
+      "GSI1PK = :pk AND GSI1SK = :sk",
+      {
+        ":pk": `${constants.EMAIL_PREFIX}${email.toLowerCase().trim()}`,
+        ":sk": constants.EMAIL_LOOKUP_SK,
+      }
+    );
 
-  return result.Item || null;
+    const user =
+      result.Items && result.Items.length > 0 ? result.Items[0] : null;
+    logInfo("Repository.getUserByEmail", "User lookup by email", {
+      email,
+      found: !!user,
+    });
+    return user;
+  } catch (error) {
+    logError("Repository.getUserByEmail", error, { email });
+    throw error;
+  }
 };
 
+/**
+ * Get user by ULID (primary lookup)
+ */
+exports.getUserById = async (userId) => {
+  try {
+    const key = {
+      PK: `${constants.USER_PREFIX}${userId}`,
+      SK: constants.USER_PROFILE_SK,
+    };
+
+    const result = await getItem(key);
+    const user = result.Item || null;
+    logInfo("Repository.getUserById", "User lookup by ID", {
+      userId,
+      found: !!user,
+    });
+    return user;
+  } catch (error) {
+    logError("Repository.getUserById", error, { userId });
+    throw error;
+  }
+};
+
+/**
+ * Create a pending user during signup (before verification)
+ * Creates USER#<ulid> record but user is in PENDING status
+ */
 exports.createPendingUser = async (email, passwordData) => {
-  const userId = generateULID();
-  const now = new Date().toISOString();
+  try {
+    const userId = generateULID();
+    const now = getCurrentTimestamp();
 
-  const user = {
-    PK: `USER#${email}`,
-    SK: "PROFILE",
-    id: userId,
-    email,
-    status: "PENDING",
-    salt: passwordData.salt,
-    hash: passwordData.hash,
-    createdAt: now,
-    updatedAt: now,
-    // GSI for email lookups (if needed)
-    GSI1PK: `EMAIL#${email}`,
-    GSI1SK: "LOOKUP",
-  };
+    const item = {
+      PK: `${constants.USER_PREFIX}${userId}`, // New ULID-based pattern
+      SK: constants.USER_PROFILE_SK,
+      id: userId,
+      email: email.toLowerCase().trim(),
+      name: email.split("@")[0], // Default name from email
+      status: constants.USER_STATUS_PENDING, // Not yet verified
+      role: constants.USER_ROLE_USER,
+      salt: passwordData.salt,
+      hash: passwordData.hash,
+      createdAt: now,
+      updatedAt: now,
 
-  await client.send(
-    new PutCommand({
-      TableName: tableName,
-      Item: user,
-      ConditionExpression: "attribute_not_exists(PK)", // Prevent overwrites
-    })
-  );
+      // GSI1 for email lookups
+      GSI1PK: `${constants.EMAIL_PREFIX}${email.toLowerCase().trim()}`,
+      GSI1SK: constants.EMAIL_LOOKUP_SK,
+    };
 
-  return user;
+    await putItem(item, "attribute_not_exists(PK)"); // Prevent overwrites
+    logInfo("Repository.createPendingUser", "Pending user created", {
+      userId,
+      email,
+    });
+    return { userId, ...item };
+  } catch (error) {
+    logError("Repository.createPendingUser", error, { email });
+    throw error;
+  }
 };
 
+/**
+ * Create a verified user (auto-verified during registration completion)
+ */
 exports.createVerifiedUser = async (email, passwordData) => {
-  const userId = generateULID();
-  const now = new Date().toISOString();
+  try {
+    const userId = generateULID();
+    const now = getCurrentTimestamp();
 
-  const user = {
-    PK: `USER#${email}`,
-    SK: "PROFILE",
-    id: userId,
-    email,
-    name: email.split("@")[0], // Default name from email
-    role: "USER",
-    status: "ACTIVE", // Already verified
-    salt: passwordData.salt,
-    hash: passwordData.hash,
-    emailVerified: true,
-    createdAt: now,
-    updatedAt: now,
-    // GSI for email lookups
-    GSI1PK: `EMAIL#${email}`,
-    GSI1SK: "LOOKUP",
-  };
+    const item = {
+      PK: `${constants.USER_PREFIX}${userId}`, // New ULID-based pattern
+      SK: constants.USER_PROFILE_SK,
+      id: userId,
+      email: email.toLowerCase().trim(),
+      name: email.split("@")[0], // Default name from email
+      status: constants.USER_STATUS_ACTIVE, // Already verified
+      role: constants.USER_ROLE_USER,
+      salt: passwordData.salt,
+      hash: passwordData.hash,
+      createdAt: now,
+      updatedAt: now,
 
-  await client.send(
-    new PutCommand({
-      TableName: tableName,
-      Item: user,
-      ConditionExpression: "attribute_not_exists(PK)", // Prevent overwrites
-    })
-  );
+      // GSI1 for email lookups
+      GSI1PK: `${constants.EMAIL_PREFIX}${email.toLowerCase().trim()}`,
+      GSI1SK: constants.EMAIL_LOOKUP_SK,
+    };
 
-  return user;
+    await putItem(item, "attribute_not_exists(GSI1PK)"); // Prevent duplicate emails
+    logInfo("Repository.createVerifiedUser", "Verified user created", {
+      userId,
+      email,
+    });
+    return { userId, ...item };
+  } catch (error) {
+    logError("Repository.createVerifiedUser", error, { email });
+    throw error;
+  }
 };
 
-exports.markUserVerified = async (email) => {
-  const now = new Date().toISOString();
-
-  await client.send(
-    new UpdateCommand({
-      TableName: tableName,
+/**
+ * Mark user as verified (update status from PENDING to ACTIVE)
+ */
+exports.markUserVerified = async (userId) => {
+  try {
+    const params = {
       Key: {
-        PK: `USER#${email}`,
-        SK: "PROFILE",
+        PK: `${constants.USER_PREFIX}${userId}`,
+        SK: constants.USER_PROFILE_SK,
       },
-      UpdateExpression:
-        "SET #status = :status, emailVerified = :verified, updatedAt = :now",
+      UpdateExpression: "SET #status = :status, #updatedAt = :now",
       ExpressionAttributeNames: {
         "#status": "status",
+        "#updatedAt": "updatedAt",
       },
       ExpressionAttributeValues: {
-        ":status": "ACTIVE",
-        ":verified": true,
-        ":now": new Date().toISOString(),
+        ":status": constants.USER_STATUS_ACTIVE,
+        ":now": getCurrentTimestamp(),
       },
-    })
-  );
+      ReturnValues: "ALL_NEW",
+    };
+
+    const result = await updateItem(params);
+    logInfo("Repository.markUserVerified", "User marked as verified", {
+      userId,
+    });
+    return result.Attributes;
+  } catch (error) {
+    logError("Repository.markUserVerified", error, { userId });
+    throw error;
+  }
 };
 
+/**
+ * Update user password
+ */
 exports.updateUserPassword = async (email, passwordData) => {
-  const now = new Date().toISOString();
+  try {
+    // First get the user by email to find their ULID
+    const user = await exports.getUserByEmail(email);
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-  await client.send(
-    new UpdateCommand({
-      TableName: tableName,
+    const params = {
       Key: {
-        PK: `USER#${email}`,
-        SK: "PROFILE",
+        PK: `${constants.USER_PREFIX}${user.id}`, // Use ULID from user record
+        SK: constants.USER_PROFILE_SK,
       },
-      UpdateExpression: "SET salt = :salt, hash = :hash, updatedAt = :now",
+      UpdateExpression: "SET salt = :salt, hash = :hash, #updatedAt = :now",
+      ExpressionAttributeNames: {
+        "#updatedAt": "updatedAt",
+      },
       ExpressionAttributeValues: {
         ":salt": passwordData.salt,
         ":hash": passwordData.hash,
-        ":now": now,
+        ":now": getCurrentTimestamp(),
       },
-    })
-  );
+      ReturnValues: "ALL_NEW",
+    };
+
+    const result = await updateItem(params);
+    logInfo("Repository.updateUserPassword", "Password updated", {
+      userId: user.id,
+      email,
+    });
+    return result.Attributes;
+  } catch (error) {
+    logError("Repository.updateUserPassword", error, { email });
+    throw error;
+  }
 };

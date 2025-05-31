@@ -1,0 +1,13 @@
+{
+  "name": "minimalist-todo-users",
+  "version": "1.0.0",
+  "description": "User management domain for minimalist todo app",
+  "main": "index.js",
+  "dependencies": {
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=22"
+  }
+}

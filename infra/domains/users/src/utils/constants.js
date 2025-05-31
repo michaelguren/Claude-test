@@ -1,27 +1,52 @@
-// domains/users/utils/constants.js
+// infra/domains/users/src/utils/constants.js
 // Constants for user domain
 
+// DynamoDB key patterns
+const USER_PREFIX = "USER#";
+const USER_PROFILE_SK = "PROFILE";
+const EMAIL_PREFIX = "EMAIL#";
+const EMAIL_LOOKUP_SK = "LOOKUP";
+
+// GSI names
+const GSI1_NAME = "GSI1";
+
+// User roles
+const USER_ROLE = "USER";
+const ADMIN_ROLE = "ADMIN";
+const VALID_ROLES = [USER_ROLE, ADMIN_ROLE];
+
+// User statuses
+const STATUS_PENDING = "PENDING";
+const STATUS_ACTIVE = "ACTIVE";
+const STATUS_SUSPENDED = "SUSPENDED";
+const VALID_STATUSES = [STATUS_PENDING, STATUS_ACTIVE, STATUS_SUSPENDED];
+
+// Validation limits
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254;
+
 module.exports = {
-  // User roles
-  VALID_ROLES: ["USER", "ADMIN"],
-  DEFAULT_ROLE: "USER",
+  // Key patterns
+  USER_PREFIX,
+  USER_PROFILE_SK,
+  EMAIL_PREFIX,
+  EMAIL_LOOKUP_SK,
 
-  // User statuses
-  VALID_STATUSES: ["ACTIVE", "INACTIVE", "SUSPENDED"],
-  DEFAULT_STATUS: "ACTIVE",
+  // GSI
+  GSI1_NAME,
 
-  // DynamoDB configuration
-  TABLE_NAME: process.env.TABLE_NAME,
-  EMAIL_GSI_NAME: "GSI1",
+  // Roles
+  USER_ROLE,
+  ADMIN_ROLE,
+  VALID_ROLES,
 
-  // DynamoDB key patterns
-  USER_PK_PREFIX: "USER#",
-  EMAIL_PK_PREFIX: "EMAIL#",
-  PROFILE_SK: "PROFILE",
-  LOOKUP_SK: "LOOKUP",
+  // Statuses
+  STATUS_PENDING,
+  STATUS_ACTIVE,
+  STATUS_SUSPENDED,
+  VALID_STATUSES,
 
-  // Validation limits
-  MAX_NAME_LENGTH: 100,
-  MIN_NAME_LENGTH: 2,
-  MAX_EMAIL_LENGTH: 255,
+  // Validation
+  MAX_NAME_LENGTH,
+  MAX_EMAIL_LENGTH,
 };

@@ -237,10 +237,95 @@
                 "Resource": {
                   "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/minimalist-todo/jwt-secret"
                 }
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["dynamodb:Query"],
+                "Resource": [
+                  {
+                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainTable}"
+                  },
+                  {
+                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainTable}/index/GSI1"
+                  }
+                ]
               }
             ]
           }
         ]
+      }
+    },
+    "TodosFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Description": "Handles all TODO operations for users",
+      "Properties": {
+        "CodeUri": "domains/todos/",
+        "Handler": "index.handler",
+        "Policies": [
+          {
+            "DynamoDBCrudPolicy": {
+              "TableName": { "Ref": "MainTable" }
+            }
+          }
+        ],
+        "Events": {
+          "TodosOptions": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/todos",
+              "Method": "OPTIONS",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "TodoOptionsWithId": {
+            "Type": "HttpApi",
+            "Properties": {
+              "Path": "/todos/{todoId}",
+              "Method": "OPTIONS",
+              "ApiId": { "Ref": "HttpApi" }
+            }
+          },
+          "CreateTodo": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/todos",
+              "Method": "POST"
+            }
+          },
+          "GetTodo": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/todos/{todoId}",
+              "Method": "GET"
+            }
+          },
+          "UpdateTodo": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/todos/{todoId}",
+              "Method": "PUT"
+            }
+          },
+          "DeleteTodo": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/todos/{todoId}",
+              "Method": "DELETE"
+            }
+          },
+          "ListTodos": {
+            "Type": "HttpApi",
+            "Properties": {
+              "ApiId": { "Ref": "HttpApi" },
+              "Path": "/todos",
+              "Method": "GET"
+            }
+          }
+        }
       }
     },
     "FrontendStack": {

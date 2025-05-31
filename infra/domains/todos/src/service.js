@@ -4,125 +4,194 @@
 const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
 const { logError, logInfo } = require("./utils-shared/logger");
 const repository = require("./repository");
+const validation = require("./utils/validation");
+const constants = require("./utils/constants");
 
-const createTodo = async (userId, text) => {
+const createTodo = async (todoData, userId) => {
   try {
-    if (!userId) throw new Error("User ID is required");
-    if (!text || text.trim() === "") throw new Error("TODO text is required");
+    // Validate input
+    const validatedData = validation.validateCreateTodo(todoData, userId);
 
-    const todoId = generateULID();
-    const now = getCurrentTimestamp();
-
+    // Build TODO object
     const todo = {
-      todoId,
-      userId,
-      text: text.trim(),
+      todoId: generateULID(),
+      userId: validatedData.userId,
+      text: validatedData.text,
       completed: false,
-      createdAt: now,
-      updatedAt: now,
+      status: constants.TODO_STATUS_ACTIVE,
+      createdAt: getCurrentTimestamp(),
+      updatedAt: getCurrentTimestamp(),
     };
 
+    // Save to database
     await repository.createTodo(todo);
     logInfo("Service.createTodo", "TODO created successfully", {
-      userId,
-      todoId,
+      todoId: todo.todoId,
+      userId: todo.userId,
     });
+
     return todo;
   } catch (error) {
-    logError("Service.createTodo", error, { userId });
+    logError("Service.createTodo", error, { todoData, userId });
     throw error;
   }
 };
 
-const getTodosByUser = async (userId) => {
+const getTodoById = async (todoId, userId) => {
   try {
-    if (!userId) throw new Error("User ID is required");
+    validation.validateTodoId(todoId);
+    validation.validateUserId(userId);
 
-    const todos = await repository.getTodosByUser(userId);
-    logInfo("Service.getTodosByUser", `Retrieved ${todos.length} todos`, {
-      userId,
-    });
-
-    // Sort by creation date (newest first)
-    return todos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const todo = await repository.getTodoById(todoId, userId);
+    return todo;
   } catch (error) {
-    logError("Service.getTodosByUser", error, { userId });
+    logError("Service.getTodoById", error, { todoId, userId });
     throw error;
   }
 };
 
-const updateTodo = async (userId, todoId, updates) => {
+const listTodos = async (userId, filters = {}) => {
   try {
-    if (!userId) throw new Error("User ID is required");
-    if (!todoId) throw new Error("TODO ID is required");
+    validation.validateUserId(userId);
 
-    // Validate updates
-    const allowedFields = ["text", "completed"];
-    const validUpdates = {};
+    const todos = await repository.listTodosByUserId(userId);
 
-    for (const field of allowedFields) {
-      if (updates.hasOwnProperty(field)) {
-        if (field === "text") {
-          if (typeof updates.text !== "string" || updates.text.trim() === "") {
-            throw new Error("TODO text cannot be empty");
-          }
-          validUpdates.text = updates.text.trim();
-        } else if (field === "completed") {
-          if (typeof updates.completed !== "boolean") {
-            throw new Error("Completed must be a boolean");
-          }
-          validUpdates.completed = updates.completed;
-        }
+    // Apply client-side filtering if needed
+    let filteredTodos = todos;
+
+    if (filters.completed !== undefined) {
+      filteredTodos = todos.filter(
+        (todo) => todo.completed === filters.completed
+      );
+    }
+
+    if (filters.status) {
+      filteredTodos = filteredTodos.filter(
+        (todo) => todo.status === filters.status
+      );
+    }
+
+    logInfo(
+      "Service.listTodos",
+      `Retrieved ${filteredTodos.length} todos for user`,
+      {
+        userId,
+        totalTodos: todos.length,
+        filteredTodos: filteredTodos.length,
       }
-    }
+    );
 
-    if (Object.keys(validUpdates).length === 0) {
-      throw new Error("No valid updates provided");
-    }
-
-    validUpdates.updatedAt = getCurrentTimestamp();
-
-    const todo = await repository.updateTodo(userId, todoId, validUpdates);
-    if (!todo) {
-      throw new Error("TODO not found");
-    }
-
-    logInfo("Service.updateTodo", "TODO updated successfully", {
-      userId,
-      todoId,
-      updates: Object.keys(validUpdates),
-    });
-    return todo;
+    return filteredTodos;
   } catch (error) {
-    logError("Service.updateTodo", error, { userId, todoId });
+    logError("Service.listTodos", error, { userId, filters });
     throw error;
   }
 };
 
-const deleteTodo = async (userId, todoId) => {
+const updateTodo = async (todoId, todoData, userId) => {
   try {
-    if (!userId) throw new Error("User ID is required");
-    if (!todoId) throw new Error("TODO ID is required");
+    validation.validateTodoId(todoId);
+    validation.validateUserId(userId);
+    const validatedUpdates = validation.validateUpdateTodo(todoData);
 
-    const success = await repository.deleteTodo(userId, todoId);
-    if (!success) {
+    // Check if TODO exists and belongs to user
+    const existingTodo = await repository.getTodoById(todoId, userId);
+    if (!existingTodo) {
       throw new Error("TODO not found");
     }
 
-    logInfo("Service.deleteTodo", "TODO deleted successfully", {
-      userId,
+    // Build update object
+    const updatedTodo = {
+      ...existingTodo,
+      ...validatedUpdates,
+      updatedAt: getCurrentTimestamp(),
+    };
+
+    // Update status based on completed flag
+    if (validatedUpdates.completed !== undefined) {
+      updatedTodo.status = validatedUpdates.completed
+        ? constants.TODO_STATUS_COMPLETED
+        : constants.TODO_STATUS_ACTIVE;
+    }
+
+    // Save changes
+    await repository.updateTodo(updatedTodo);
+    logInfo("Service.updateTodo", "TODO updated successfully", {
       todoId,
+      userId,
+      updates: Object.keys(validatedUpdates),
     });
-    return success;
+
+    return updatedTodo;
   } catch (error) {
-    logError("Service.deleteTodo", error, { userId, todoId });
+    logError("Service.updateTodo", error, { todoId, todoData, userId });
+    throw error;
+  }
+};
+
+const deleteTodo = async (todoId, userId) => {
+  try {
+    validation.validateTodoId(todoId);
+    validation.validateUserId(userId);
+
+    // Check if TODO exists and belongs to user
+    const existingTodo = await repository.getTodoById(todoId, userId);
+    if (!existingTodo) {
+      throw new Error("TODO not found");
+    }
+
+    // Delete TODO
+    await repository.deleteTodo(todoId, userId);
+    logInfo("Service.deleteTodo", "TODO deleted successfully", {
+      todoId,
+      userId,
+    });
+  } catch (error) {
+    logError("Service.deleteTodo", error, { todoId, userId });
+    throw error;
+  }
+};
+
+const toggleTodo = async (todoId, userId) => {
+  try {
+    validation.validateTodoId(todoId);
+    validation.validateUserId(userId);
+
+    // Get current TODO
+    const existingTodo = await repository.getTodoById(todoId, userId);
+    if (!existingTodo) {
+      throw new Error("TODO not found");
+    }
+
+    // Toggle completed status
+    const updatedTodo = {
+      ...existingTodo,
+      completed: !existingTodo.completed,
+      status: !existingTodo.completed
+        ? constants.TODO_STATUS_COMPLETED
+        : constants.TODO_STATUS_ACTIVE,
+      updatedAt: getCurrentTimestamp(),
+    };
+
+    await repository.updateTodo(updatedTodo);
+    logInfo("Service.toggleTodo", "TODO toggled successfully", {
+      todoId,
+      userId,
+      completed: updatedTodo.completed,
+    });
+
+    return updatedTodo;
+  } catch (error) {
+    logError("Service.toggleTodo", error, { todoId, userId });
     throw error;
   }
 };
 
 module.exports = {
   createTodo,
-  getTodosByUser,
+  getTodoById,
+  listTodos,
   updateTodo,
   deleteTodo,
+  toggleTodo,
 };

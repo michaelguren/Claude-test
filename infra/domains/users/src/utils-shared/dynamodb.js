@@ -6,14 +6,14 @@ const {
   DynamoDBDocumentClient,
   PutCommand,
   GetCommand,
-  QueryCommand,
-  ScanCommand,
+  UpdateCommand,
   DeleteCommand,
+  QueryCommand,
 } = require("@aws-sdk/lib-dynamodb");
 
 // Create DynamoDB client
 const client = new DynamoDBClient({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION || "us-east-1",
 });
 
 // Create Document client for easier JavaScript object handling
@@ -23,20 +23,22 @@ const dynamodb = DynamoDBDocumentClient.from(client, {
   },
 });
 
+// Get table name from environment
+const TABLE_NAME = process.env.TABLE_NAME;
+
 // Helper function for putting items with condition
 const putItem = async (item, conditionExpression = null) => {
-  const params = {
-    TableName: process.env.TABLE_NAME,
-    Item: item,
-  };
-
-  if (conditionExpression) {
-    params.ConditionExpression = conditionExpression;
-  }
-
   try {
+    const params = {
+      TableName: TABLE_NAME,
+      Item: item,
+    };
+
+    if (conditionExpression) {
+      params.ConditionExpression = conditionExpression;
+    }
+
     await dynamodb.send(new PutCommand(params));
-    return item;
   } catch (error) {
     console.error("Error putting item:", error);
     throw error;
@@ -45,16 +47,96 @@ const putItem = async (item, conditionExpression = null) => {
 
 // Helper function for getting items
 const getItem = async (key) => {
-  const params = {
-    TableName: process.env.TABLE_NAME,
-    Key: key,
-  };
-
   try {
+    const params = {
+      TableName: TABLE_NAME,
+      Key: key,
+    };
+
     const result = await dynamodb.send(new GetCommand(params));
-    return result.Item || null;
+    return result;
   } catch (error) {
     console.error("Error getting item:", error);
+    throw error;
+  }
+};
+
+// Helper function for updating items
+const updateItem = async (params) => {
+  try {
+    const updateParams = {
+      TableName: TABLE_NAME,
+      ...params,
+    };
+
+    const result = await dynamodb.send(new UpdateCommand(updateParams));
+    return result;
+  } catch (error) {
+    console.error("Error updating item:", error);
+    throw error;
+  }
+};
+
+// Helper function for deleting items
+const deleteItem = async (params) => {
+  try {
+    const deleteParams = {
+      TableName: TABLE_NAME,
+      ...params,
+    };
+
+    await dynamodb.send(new DeleteCommand(deleteParams));
+  } catch (error) {
+    console.error("Error deleting item:", error);
+    throw error;
+  }
+};
+
+// Efficient list items function using Query operations
+const listItems = async (pkValue, skPrefix = null, options = {}) => {
+  try {
+    const params = {
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "PK = :pk",
+      ExpressionAttributeValues: {
+        ":pk": pkValue,
+      },
+    };
+
+    // Add SK prefix condition if provided
+    if (skPrefix) {
+      params.KeyConditionExpression += " AND begins_with(SK, :sk)";
+      params.ExpressionAttributeValues[":sk"] = skPrefix;
+    }
+
+    // Add optional parameters
+    if (options.limit) {
+      params.Limit = options.limit;
+    }
+
+    if (options.exclusiveStartKey) {
+      params.ExclusiveStartKey = options.exclusiveStartKey;
+    }
+
+    if (options.scanIndexForward !== undefined) {
+      params.ScanIndexForward = options.scanIndexForward;
+    }
+
+    if (options.filterExpression) {
+      params.FilterExpression = options.filterExpression;
+    }
+
+    if (options.expressionAttributeValues) {
+      params.ExpressionAttributeValues = {
+        ...params.ExpressionAttributeValues,
+        ...options.expressionAttributeValues,
+      };
+    }
+
+    const result = await dynamodb.send(new QueryCommand(params));
+    return result;
+  } catch (error) {
+    console.error("Error listing items:", error);
     throw error;
   }
 };
@@ -62,22 +144,19 @@ const getItem = async (key) => {
 // Helper function for querying GSI
 const queryGSI = async (
   indexName,
-  keyCondition,
-  attributeValues,
-  filterExpression = null
+  keyConditionExpression,
+  expressionAttributeValues,
+  options = {}
 ) => {
-  const params = {
-    TableName: process.env.TABLE_NAME,
-    IndexName: indexName,
-    KeyConditionExpression: keyCondition,
-    ExpressionAttributeValues: attributeValues,
-  };
-
-  if (filterExpression) {
-    params.FilterExpression = filterExpression;
-  }
-
   try {
+    const params = {
+      TableName: TABLE_NAME,
+      IndexName: indexName,
+      KeyConditionExpression: keyConditionExpression,
+      ExpressionAttributeValues: expressionAttributeValues,
+      ...options,
+    };
+
     const result = await dynamodb.send(new QueryCommand(params));
     return result;
   } catch (error) {
@@ -86,39 +165,11 @@ const queryGSI = async (
   }
 };
 
-// Helper function for scanning table
-const scanTable = async (filterExpression = null, attributeValues = null) => {
-  const params = {
-    TableName: process.env.TABLE_NAME,
-  };
-
-  if (filterExpression) {
-    params.FilterExpression = filterExpression;
-  }
-
-  if (attributeValues) {
-    params.ExpressionAttributeValues = attributeValues;
-  }
-
-  try {
-    const result = await dynamodb.send(new ScanCommand(params));
-    return result;
-  } catch (error) {
-    console.error("Error scanning table:", error);
-    throw error;
-  }
-};
-
 module.exports = {
-  dynamodb,
   putItem,
   getItem,
+  updateItem,
+  deleteItem,
+  listItems,
   queryGSI,
-  scanTable,
-  // Export command classes for direct use if needed
-  PutCommand,
-  GetCommand,
-  QueryCommand,
-  ScanCommand,
-  DeleteCommand,
 };
