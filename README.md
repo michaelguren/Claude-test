@@ -21,8 +21,8 @@ It is intended as a starting point for future apps, prioritizing long-term durab
 
 1. **Zero runtime dependencies**: No frameworks, SDKs, or bundlers.
 2. **Consolidated SAM templates**: Single template for all backend resources with shared HTTP API.
-3. **Lambda per resource**: One Lambda function handles all operations for each business resource (users, todos, etc.).
-4. **HTTP API Gateway**: Modern, cost-effective API Gateway with built-in JWT authorization.
+3. **Lambda per resource**: One Lambda function handles all operations for each business resource (auth, users, todos, etc.).
+4. **HTTP API Gateway**: Modern, cost-effective API Gateway v2.0 with JWT authorization capability.
 5. **Strict data isolation**: Each user's data is isolated at every layer.
 6. **Frontend purity**: Vanilla JS with custom micro-utilities for interactivity.
 7. **Simple CRUD patterns**: Standard HTTP endpoints with JSON request/response.
@@ -37,7 +37,7 @@ It is intended as a starting point for future apps, prioritizing long-term durab
 This project uses a **single SAM template** (`infra/template.json`) that defines all core infrastructure:
 
 - **Shared HTTP API Gateway** - Single API endpoint for all domains
-- **Domain-based Lambda functions** - One function per business resource (users, todos, etc.)
+- **Domain-based Lambda functions** - One function per business resource (auth, users, todos, etc.)
 - **Single DynamoDB table** - Multi-tenant design with proper access patterns
 - **Frontend infrastructure** - Nested CloudFormation stack for S3/CloudFront
 
@@ -57,9 +57,10 @@ We moved away from nested SAM applications because:
 infra/
 ├── template.json              # Main SAM template (all backend resources)
 ├── domains/                   # Business domain Lambda functions
-│   ├── shared/               # Shared utilities across domains
-│   └── users/                # User management domain
-│       └── src/              # Lambda function code
+│   ├── utils-shared/         # Shared utilities across domains
+│   ├── auth/                 # Authentication domain
+│   ├── users/                # User management domain
+│   └── todos/                # TODO management domain
 └── stacks/
     └── frontend/             # Frontend-only nested stack
         └── frontend.json     # S3, CloudFront, monitoring
@@ -75,7 +76,7 @@ This scaffold embraces **serverless-first architecture** with a focus on simplic
 
 - **Lambda over containers** - No server management, automatic scaling
 - **HTTP API over REST API** - 50% cost savings, simpler integration
-- **JWT authorization** - Built-in HTTP API auth, no custom logic needed
+- **JWT authorization** - Built-in HTTP API auth capability (configurable)
 - **One Lambda per resource** - Shared logic, better cold start management
 - **DynamoDB single-table design** - Optimized for serverless access patterns
 - **Consolidated SAM templates** - Single backend stack for easier management
@@ -91,7 +92,7 @@ This scaffold embraces **serverless-first architecture** with a focus on simplic
 ```
 Frontend (Vanilla JS/CSS/HTML)
     ↓
-Custom Domain → HTTP API Gateway (JWT Auth)
+HTTP API Gateway (with optional JWT Auth)
     ↓
 Lambda Functions (one per resource)
     ↓
@@ -109,33 +110,42 @@ minimalist-todo/
 │   ├── callback.html           # Auth callback handler
 │   ├── css/style.css
 │   └── js/
-│       ├── config.js           # Environment configuration
 │       ├── auth.js             # Authentication logic
 │       ├── api.js              # API client
 │       ├── app.js              # Main application logic
+│       └── htmx-lite.js        # Minimal AJAX utility
 ├── infra/                       # Infrastructure as Code
 │   ├── template.json           # Main SAM template (all backend resources)
 │   ├── samconfig.toml          # SAM deployment configuration
 │   ├── domains/                # Business domain Lambda functions
-│   │   ├── shared/            # Shared utilities across domains
-│   │   │   ├── dynamodb.js    # DynamoDB operations
-│   │   │   ├── helpers.js     # Common utilities
-│   │   │   ├── responses.js   # Standard HTTP responses
-│   │   │   └── validation.js  # Input validation
-│   │   └── users/             # User management domain
-│   │       └── src/
-│   │           ├── index.js   # Lambda handler entry point
-│   │           ├── controller.js # HTTP request handling
-│   │           ├── service.js    # Business logic
-│   │           ├── repository.js # Data access layer
-│   │           └── validation.js # Domain-specific validation
+│   │   ├── utils-shared/       # Shared utilities across domains
+│   │   │   ├── dynamodb.js     # DynamoDB operations
+│   │   │   ├── helpers.js      # Common utilities
+│   │   │   ├── cors.js         # CORS handling
+│   │   │   └── logger.js       # Centralized logging
+│   │   ├── auth/               # Authentication domain
+│   │   │   └── src/
+│   │   │       ├── index.js    # Lambda handler entry point
+│   │   │       ├── controller.js # HTTP request handling
+│   │   │       ├── service.js    # Business logic
+│   │   │       ├── repository.js # Data access layer
+│   │   │       └── utils/        # Domain-specific utilities
+│   │   ├── users/              # User management domain
+│   │   └── todos/              # TODO management domain
 │   └── stacks/
 │       └── frontend/          # Frontend infrastructure (S3/CloudFront)
 │           └── frontend.json
 ├── scripts/                   # Deployment and utility scripts
-│   ├── create-first-admin-user.sh  # Bootstrap admin user
 │   ├── deploy-frontend.sh          # Frontend deployment
+│   ├── test-auth.sh                # Auth flow testing
+│   ├── verify-auth.sh              # Manual auth verification
+│   ├── test-todos.sh               # TODO operations testing
 │   └── local-server.js             # Local development server
+├── zpatterns/                 # Reference patterns and documentation
+│   ├── dynamodb.md            # Single-table design patterns
+│   ├── http-api.txt           # HTTP API examples
+│   ├── secrets.txt            # Secrets management examples
+│   └── step-functions.txt     # Step Functions examples
 └── Makefile                   # Deployment commands
 ```
 
@@ -170,16 +180,16 @@ make sync-backend ENV=dev
 
 ### Stack Organization
 
-- **Main Stack**: `minimalist-todo-20250526`
+- **Main Stack**: Named per configuration (e.g., `minimalist-todo-20250528`)
 
   - HTTP API Gateway
   - All Lambda functions
   - DynamoDB table
   - Nested frontend stack
 
-- **Frontend Nested Stack**: `minimalist-todo-20250526-FrontendStack-*`
+- **Frontend Nested Stack**: `{MainStack}-FrontendStack-*`
   - S3 bucket for static assets
-  - CloudFront distribution (prod only)
+  - CloudFront distribution (production only)
   - Monitoring alarms
 
 ### Environment Isolation
@@ -195,47 +205,21 @@ No shared resources between environments.
 
 ## 🔧 Auth Architecture Overview
 
-This scaffold uses a simple, secure authentication system:
+This scaffold uses a simple, secure email/password authentication system:
 
-- **HTTP API Gateway** with built-in JWT authorizers
-- **JSON Web Tokens (JWT)** for stateless authentication
-- **DynamoDB** stores user records with role-based access
-- **Lambda functions** handle auth operations (login, register, refresh)
+- **Email verification** with OTP codes for signup
+- **JWT tokens** generated server-side for stateless authentication
+- **DynamoDB** stores user records and verification codes
+- **AWS SES** for sending verification emails
+- **AWS Systems Manager** for JWT secret storage
 
 **Key Benefits:**
 
-- **Built-in authorization** - HTTP API handles JWT validation
+- **Simple email/password flow** - No external providers required
 - **Stateless design** - No session management complexity
-- **Role-based access** - Admin vs user permissions
-- **AWS-native** - Cognito handles user management, password policies, MFA
-
----
-
-## 🔧 Bootstrap Strategy
-
-### First Admin User Creation
-
-Since user creation requires admin privileges, we use a **database seeding approach**:
-
-**One-time setup after first deployment:**
-
-```bash
-# Run this script once to create your first admin user
-./scripts/create-first-admin-user.sh
-```
-
-**The script directly inserts the admin user into DynamoDB:**
-
-- Bypasses API authorization (runs with your AWS credentials)
-- Creates admin user with `role: "ADMIN"`
-- Only needs to be run once per environment
-- Can be customized for your admin email/details
-
-**After the first admin exists:**
-
-- All subsequent users created via `/users` API endpoints
-- Admin users can create/manage other users through the web interface
-- No special bootstrap code paths in your application
+- **Role-based access** - Admin vs user permissions built-in
+- **AWS-native** - Uses SES, SSM, and DynamoDB
+- **Extensible** - Easy to add OAuth providers later
 
 ---
 
@@ -244,53 +228,30 @@ Since user creation requires admin privileges, we use a **database seeding appro
 All Lambda functions follow a consistent resource-based pattern:
 
 ```javascript
-// domains/users/src/index.js - Handles all user operations
-const controller = require("./controller");
+// domains/auth/index.js - Handles all auth operations
+const { withCors } = require("./src/utils-shared/cors");
 
-exports.handler = async (event) => {
-  console.log("Received event:", JSON.stringify(event, null, 2));
-  return await controller.handleRequest(event);
-};
-```
-
-```javascript
-// domains/users/src/controller.js - HTTP request routing
-const {
-  parseBody,
-  errorResponse,
-  successResponse,
-} = require("./shared/helpers");
-const service = require("./service");
-
-const handleRequest = async (event) => {
-  const { httpMethod, pathParameters } = event;
-
-  try {
-    switch (httpMethod) {
-      case "POST":
-        return await createUser(parseBody(event.body));
-      case "GET":
-        return pathParameters?.userId
-          ? await getUser(pathParameters.userId)
-          : await listUsers();
-      case "PUT":
-        return await updateUser(pathParameters?.userId, parseBody(event.body));
-      case "DELETE":
-        return await deleteUser(pathParameters?.userId);
-      default:
-        return errorResponse(405, "Method Not Allowed");
-    }
-  } catch (error) {
-    console.error("Error in user controller:", error);
-    return errorResponse(500, error.message);
+const authHandler = async (event) => {
+  // Route based on event.routeKey (HTTP API v2.0 format)
+  if (event.routeKey === "POST /auth/signup") {
+    return await signupHandler(event);
   }
+  if (event.routeKey === "POST /auth/verify-signup") {
+    return await verifySignupHandler(event);
+  }
+  if (event.routeKey === "POST /auth/login") {
+    return await loginHandler(event);
+  }
+  // ... other routes
 };
+
+exports.handler = withCors(authHandler);
 ```
 
 This pattern provides:
 
 - **Consistent error handling** across all endpoints
-- **Shared initialization code** (DB connections, etc.)
+- **CORS handling** via shared utilities
 - **Better cold start performance**
 - **Easier testing and debugging**
 - **Clear separation of concerns** (controller → service → repository)
@@ -301,59 +262,33 @@ This pattern provides:
 
 The application uses a single DynamoDB table with the following patterns:
 
-### Auth Domain Patterns
+### Auth Domain Pattern
 
-- PK: `USER#<email>`
-- SK: `VERIFICATION#<ULID>`
-- TTL attribute: `TTL` (numeric UNIX timestamp)
-- Status tracking: e.g., `PENDING`, `VERIFIED`
+**User entities:**
 
-Access pattern:
+- PK: `USER#<ulid>`
+- SK: `PROFILE`
+- GSI1PK: `EMAIL#<email>` (for email lookups)
 
-- Fetch latest verification code using:
-  - `PK = USER#<email>`
-  - `begins_with(SK, VERIFICATION#)`
-  - `Limit = 1`, `ScanIndexForward = false`
+**Verification codes:**
 
-### User Entity Pattern:
+- PK: `USER#<email>` (during signup process)
+- SK: `VERIFICATION#<ulid>`
+- TTL: Numeric timestamp for auto-expiration
 
-```javascript
-{
-  PK: "USER#01HVN8T7G8K9M2Q3R4S5T6U7V8",
-  SK: "PROFILE",
-  id: "01HVN8T7G8K9M2Q3R4S5T6U7V8",
-  email: "user@example.com",
-  name: "John Doe",
-  role: "USER", // or "ADMIN"
-  status: "ACTIVE",
-  createdAt: "2025-05-26T10:00:00Z",
-  updatedAt: "2025-05-26T10:00:00Z",
+### TODO Domain Pattern
 
-  // GSI1 for email lookups
-  GSI1PK: "EMAIL#user@example.com",
-  GSI1SK: "LOOKUP"
-}
-```
+**TODO entities:**
+
+- PK: `USER#<user_ulid>`
+- SK: `TODO#<todo_ulid>`
 
 ### Access Patterns:
 
-- **Get user by ID**: Query PK=`USER#{id}`, SK=`PROFILE`
+- **Get user by ID**: Query PK=`USER#{ulid}`, SK=`PROFILE`
 - **Get user by email**: Query GSI1 where GSI1PK=`EMAIL#{email}`
-- **List all users**: Query PK=`USER#`, SK begins_with `PROFILE`
-
-### Future Entity Patterns:
-
-```javascript
-// TODO entities (when implemented)
-{
-  PK: "USER#01HVN8T7G8K9M2Q3R4S5T6U7V8",
-  SK: "TODO#01HVN8T7G8K9M2Q3R4S5T6U7V9",
-  todoId: "01HVN8T7G8K9M2Q3R4S5T6U7V9",
-  text: "Buy groceries",
-  completed: false,
-  createdAt: "2025-05-26T10:00:00Z"
-}
-```
+- **List user's TODOs**: Query PK=`USER#{ulid}`, SK begins_with `TODO#`
+- **Get verification code**: Query PK=`USER#{email}`, SK begins_with `VERIFICATION#`
 
 ---
 
@@ -361,37 +296,20 @@ Access pattern:
 
 Configuration and secrets are handled using AWS-native services:
 
-- **AWS Systems Manager Parameter Store** for application configuration
-- **AWS Secrets Manager** for sensitive data (API keys, database credentials)
+- **AWS Systems Manager Parameter Store** for application configuration (JWT secrets)
 - **Environment variables** populated from these services via SAM templates
 - **No hardcoded secrets** in code or templates
 
-Example usage in SAM templates:
+Example setup:
 
-```json
-{
-  "Environment": {
-    "Variables": {
-      "DB_NAME": "{{resolve:secretsmanager:/myApp/DbName}}",
-      "API_KEY": "{{resolve:secretsmanager:/myApp/ApiKey}}",
-      "LOG_LEVEL": { "Ref": "LogLevelParameter" }
-    }
-  }
-}
+```bash
+# One-time JWT secret setup per environment
+aws ssm put-parameter \
+  --name "/minimalist-todo/jwt-secret" \
+  --value "$(openssl rand -base64 32)" \
+  --type "SecureString" \
+  --profile dev
 ```
-
----
-
-## 🌐 Custom Domain & SSL
-
-Professional deployment includes:
-
-- **Custom domain configuration** via Route 53
-- **SSL certificate management** via AWS Certificate Manager
-- **CloudFront distribution** for global performance (production)
-- **Automatic HTTPS redirects**
-
-Domain setup is handled entirely through SAM templates with minimal configuration required.
 
 ---
 
@@ -407,12 +325,27 @@ node scripts/local-server.js 8080 frontend
 ### Backend Development
 
 ```bash
-# Build and test locally
-sam build --template-file infra/template.json
-sam local start-api --template-file infra/template.json
+# Sync shared utilities before building
+make sync-utils-shared
+
+# Build and deploy
+make deploy-backend ENV=dev
 
 # Sync changes to AWS (dev environment)
 make sync-backend ENV=dev
+```
+
+### Testing
+
+```bash
+# Test auth flow
+./scripts/test-auth.sh
+
+# Complete email verification manually
+./scripts/verify-auth.sh
+
+# Test TODO operations
+./scripts/test-todos.sh
 ```
 
 ### Deployment
@@ -437,22 +370,17 @@ This template is intentionally minimal. Additions should:
 - Follow the **one Lambda per resource** pattern
 - Use **HTTP API Gateway** for all new endpoints
 - Maintain **simple CRUD operations**
-- Keep **JWT authorization** consistent
+- Use **event.routeKey** for routing (HTTP API v2.0 format)
+- Keep shared utilities in `domains/utils-shared/`
 - Document clearly for future developers
-
-Examples of expected customization:
-
-- Adding new business resources (todos, comments, etc.)
-- Extending user management capabilities
-- Adding background job processing
-- Creating admin dashboard endpoints
 
 ### Adding New Resources
 
-1. Create new domain folder: `infra/domains/todos/src/`
-2. Implement resource-based Lambda function
+1. Create new domain folder: `infra/domains/newresource/src/`
+2. Implement resource-based Lambda function following existing patterns
 3. Add function and events to main `template.json`
-4. Update frontend to consume new endpoints
+4. Sync shared utilities: `make sync-utils-shared`
+5. Update frontend to consume new endpoints
 
 ---
 
@@ -463,37 +391,34 @@ Examples of expected customization:
 - HTTP API Gateway: ~$50
 - Lambda Functions: ~$30
 - DynamoDB: ~$40
-- Cognito: ~$0 (under free tier)
-- **Total: ~$120/month**
+- SES (email): ~$5
+- **Total: ~$125/month**
 
 This scales cost-effectively to 500k+ daily active users before requiring architectural changes.
 
 ---
 
-## 🛣️ Development Roadmap
+## ✅ Status
 
-### MVP Phase (Current)
+> **Fully Functional** - Complete scaffolding with auth, users, and todos implemented. Ready for customization and extension.
+
+**Currently Implemented:**
 
 - ✅ HTTP API + Lambda + DynamoDB foundation
 - ✅ Consolidated SAM template architecture
-- ✅ JWT authentication with Cognito
-- ✅ Custom domain setup
-- ✅ Secrets management
+- ✅ Email/password authentication with JWT
 - ✅ User management domain
-- 🔄 First business resource (todos)
+- ✅ TODO management domain
+- ✅ Frontend with real authentication integration
+- ✅ Deployment automation and testing scripts
 
-### Production Phase (Later)
+**Ready for Extension:**
 
-- Safe deployment strategies (canary/blue-green)
-- Governance and compliance (AWS Config)
+- Additional business resources following established patterns
+- Production authentication hardening
+- Enhanced frontend features
+- Custom domain setup
 - Monitoring and alerting
-- Performance optimization
-
-### Scale Phase (Much Later)
-
-- Multi-region deployment
-- Advanced caching strategies
-- Microservice decomposition (if needed)
 
 ---
 
@@ -501,18 +426,9 @@ This scales cost-effectively to 500k+ daily active users before requiring archit
 
 ### ADR-001: Consolidated SAM Templates
 
-**Context**: Initially used nested SAM applications to organize domains, but encountered HTTP API sharing issues.
-
 **Decision**: Consolidate all Lambda functions into single SAM template with shared HTTP API.
 
-**Consequences**:
-
-- ✅ Simplified HTTP API event configuration
-- ✅ Single deployment command for all backend resources
-- ✅ Direct resource references (no complex imports/exports)
-- ✅ Easier debugging and monitoring
-- ❌ Slightly larger template file
-- ❌ Less modular at CloudFormation level (but domain separation maintained in filesystem)
+**Rationale**: Simplified HTTP API sharing, single deployment, direct resource references.
 
 ### ADR-002: Resource-Based Lambda Functions
 
@@ -526,21 +442,11 @@ This scales cost-effectively to 500k+ daily active users before requiring archit
 
 **Rationale**: Cost optimization, simplified access patterns, better performance for serverless.
 
----
+### ADR-004: Email/Password Authentication
 
-## ✅ Status
+**Decision**: Build simple email/password auth instead of using Cognito.
 
-> **MVP Phase** - Stable scaffolding architecture suitable for development and testing.
-
-This scaffold prioritizes **simplicity, maintainability, and cost-effectiveness** over architectural complexity. Perfect for building sustainable, profitable applications that can scale from prototype to significant user base.
-
-**Next Steps:**
-
-1. Deploy core infrastructure
-2. Implement first business resource (todos)
-3. Build minimal frontend
-4. Test end-to-end functionality
-5. Iterate toward production readiness
+**Rationale**: Simpler integration, lower cost, full control over user experience, easier testing.
 
 ---
 

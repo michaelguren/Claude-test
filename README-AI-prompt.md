@@ -36,7 +36,7 @@ This prevents code drift and allows focused review of each change.
 **Then reference these implementation guides:**
 
 3. **`infra/template.json`** - Main consolidated SAM template (all backend resources)
-4. **`zpatterns/`** - Reference SAM patterns for HTTP API, secrets management, and Step Functions
+4. **`zpatterns/`** - Reference SAM patterns for HTTP API, secrets management, Step Functions, and DynamoDB single table patterns
 5. **Project codebase** - Complete implementation examples in `infra/domains/*/src/`
 
 **You MUST follow the values and guidance in these files at all times.**
@@ -57,6 +57,7 @@ This prevents code drift and allows focused review of each change.
 - **Zero runtime dependencies** - Vanilla JS/HTML/CSS only, Node.js built-ins for Lambda
 - **AWS-native solutions** - Parameter Store, Secrets Manager, SES for email
 - **Event routing using `event.routeKey`** - HTTP API v2.0 format
+- **Shared utilities synchronization** - Use `make sync-utils-shared` to propagate changes
 
 ## Critical Rules
 
@@ -66,6 +67,8 @@ This prevents code drift and allows focused review of each change.
 - Follow the established controller → service → repository pattern from `infra/domains/*/src/`
 - Reference the shared HTTP API directly in Lambda events
 - Use `event.routeKey` for routing (e.g., "POST /auth/login")
+- Run `make sync-utils-shared` when modifying shared utilities
+- Use JWT patterns established in auth domain for user identification
 - Ask clarifying questions if requirements add complexity
 - Reference existing code patterns before creating new ones
 
@@ -76,7 +79,8 @@ This prevents code drift and allows focused review of each change.
 - Break the established Lambda organization patterns
 - Suggest external frameworks or dependencies
 - Use file system tools - provide copy/paste code only
-- Use `event.httpMethod` or `event.path` (HTTP API v1.0 patterns)
+- Reference `event.httpMethod` or `event.path` (use `event.routeKey` instead)
+- Modify shared utilities without running sync command
 
 ## Quality Checklist
 
@@ -85,6 +89,7 @@ Before completing any task:
 - ✅ Does this follow the consolidated SAM template approach?
 - ✅ Does this match the established Lambda patterns in `infra/domains/*/src/`?
 - ✅ Does this use `event.routeKey` for HTTP routing?
+- ✅ Are shared utilities properly synchronized if modified?
 - ✅ Can a junior developer understand this in 6 months?
 - ✅ Does this maintain the simple, predictable architecture?
 
@@ -93,17 +98,19 @@ Before completing any task:
 **Fully Implemented:**
 
 - ✅ Consolidated SAM template (`infra/template.json`)
-- ✅ Auth domain with email/password flow
+- ✅ Auth domain with email/password + JWT flow
 - ✅ User management domain with full CRUD
 - ✅ Todo management domain with full CRUD
 - ✅ Frontend with real authentication integration
-- ✅ Bootstrap scripts and deployment automation
+- ✅ Deployment automation and testing scripts
+- ✅ Shared utilities synchronization system
 
 **Ready for Extension:**
 
 - 🔄 Additional business resources following established patterns
-- 🔄 Production authentication hardening
+- 🔄 JWT refresh token patterns
 - 🔄 Enhanced frontend features
+- 🔄 Production monitoring and alerting
 
 ## Key Reference Files
 
@@ -111,10 +118,12 @@ Before completing any task:
 - `infra/domains/auth/src/` - Authentication patterns
 - `infra/domains/users/src/` - User management patterns
 - `infra/domains/todos/src/` - Business resource patterns
-- `infra/domains/utils-shared/` - Shared utility patterns
+- `infra/domains/utils-shared/` - Source of truth for shared utilities
 - `frontend/js/` - Frontend architecture
 - `Makefile` - Deployment commands
 - `scripts/` - Bootstrap and deployment scripts
+- `scripts/test-*.sh` - Integration testing scripts
+- `zpatterns/dynamodb.md` - Single-table design reference patterns
 
 ---
 
