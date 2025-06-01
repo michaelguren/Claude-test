@@ -14,10 +14,10 @@ const constants = require("./utils/constants");
 const createTodo = async (todo) => {
   try {
     const item = {
-      PK: `${constants.USER_PREFIX}${todo.userId}`,
+      PK: `${constants.USER_PREFIX}${todo.userEmail}`,
       SK: `${constants.TODO_PREFIX}${todo.todoId}`,
       todoId: todo.todoId,
-      userId: todo.userId,
+      userEmail: todo.userEmail,
       text: todo.text,
       completed: todo.completed,
       status: todo.status,
@@ -40,32 +40,32 @@ const createTodo = async (todo) => {
   }
 };
 
-const getTodoById = async (todoId, userId) => {
+const getTodoById = async (todoId, userEmail) => {
   try {
     const key = {
-      PK: `${constants.USER_PREFIX}${userId}`,
+      PK: `${constants.USER_PREFIX}${userEmail}`,
       SK: `${constants.TODO_PREFIX}${todoId}`,
     };
 
     const result = await getItem(key);
     return result?.Item || null;
   } catch (error) {
-    logError("Repository.getTodoById", error, { todoId, userId });
+    logError("Repository.getTodoById", error, { todoId, userEmail });
     throw error;
   }
 };
 
-const listTodosByUserId = async (userId) => {
+const listTodosByUserEmail = async (userEmail) => {
   try {
     // Use listItems with PK and SK prefix for efficient querying
     const result = await listItems(
-      `${constants.USER_PREFIX}${userId}`,
+      `${constants.USER_PREFIX}${userEmail}`,
       constants.TODO_PREFIX
     );
 
     return result?.Items || [];
   } catch (error) {
-    logError("Repository.listTodosByUserId", error, { userId });
+    logError("Repository.listTodosByUserEmail", error, { userEmail });
     throw error;
   }
 };
@@ -73,7 +73,7 @@ const listTodosByUserId = async (userId) => {
 const updateTodo = async (todo) => {
   try {
     const key = {
-      PK: `${constants.USER_PREFIX}${todo.userId}`,
+      PK: `${constants.USER_PREFIX}${todo.userEmail}`,
       SK: `${constants.TODO_PREFIX}${todo.todoId}`,
     };
 
@@ -107,16 +107,16 @@ const updateTodo = async (todo) => {
     }
     logError("Repository.updateTodo", error, {
       todoId: todo.todoId,
-      userId: todo.userId,
+      userEmail: todo.userEmail,
     });
     throw error;
   }
 };
 
-const deleteTodo = async (todoId, userId) => {
+const deleteTodo = async (todoId, userEmail) => {
   try {
     const key = {
-      PK: `${constants.USER_PREFIX}${userId}`,
+      PK: `${constants.USER_PREFIX}${userEmail}`,
       SK: `${constants.TODO_PREFIX}${todoId}`,
     };
 
@@ -130,7 +130,7 @@ const deleteTodo = async (todoId, userId) => {
     if (error.name === "ConditionalCheckFailedException") {
       throw new Error("TODO not found");
     }
-    logError("Repository.deleteTodo", error, { todoId, userId });
+    logError("Repository.deleteTodo", error, { todoId, userEmail });
     throw error;
   }
 };
@@ -138,7 +138,7 @@ const deleteTodo = async (todoId, userId) => {
 module.exports = {
   createTodo,
   getTodoById,
-  listTodosByUserId,
+  listTodosByUserEmail,
   updateTodo,
   deleteTodo,
 };

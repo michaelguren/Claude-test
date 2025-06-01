@@ -62,11 +62,13 @@ const generateToken = async (user) => {
 
   const payload = Buffer.from(
     JSON.stringify({
-      sub: user.id, // Use ULID as subject
-      email: user.email,
+      iss: "minimalist-todo-app", // Your app identifier
+      aud: "minimalist-todo-api", // Your API audience
+      sub: user.id, // User ULID (keep existing)
+      email: user.email, // User email (keep existing)
       role: user.role,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
+      iat: Math.floor(Date.now() / 1000), // Keep existing
+      exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour (vs your current 24 hours)
     })
   ).toString("base64url");
 

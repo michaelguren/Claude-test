@@ -37,6 +37,17 @@
       "Type": "AWS::Serverless::HttpApi",
       "Description": "Shared HTTP API Gateway for all domains",
       "Properties": {
+        "Auth": {
+          "Authorizers": {
+            "JwtAuth": {
+              "JwtConfiguration": {
+                "issuer": "minimalist-todo-app",
+                "audience": ["minimalist-todo-api"]
+              },
+              "IdentitySource": "$request.header.Authorization"
+            }
+          }
+        },
         "CorsConfiguration": {
           "AllowCredentials": { "Fn::If": ["IsProduction", true, false] },
           "AllowHeaders": ["Content-Type", "Authorization"],
@@ -250,7 +261,7 @@
     },
     "TodosFunction": {
       "Type": "AWS::Serverless::Function",
-      "Description": "Handles all TODO operations for users",
+      "Description": "Handles all TODO operations for authenticated users",
       "Properties": {
         "CodeUri": "domains/todos/",
         "Handler": "index.handler",
@@ -283,7 +294,10 @@
             "Properties": {
               "ApiId": { "Ref": "HttpApi" },
               "Path": "/todos",
-              "Method": "POST"
+              "Method": "POST",
+              "Auth": {
+                "Authorizer": "JwtAuth"
+              }
             }
           },
           "GetTodo": {
@@ -291,7 +305,10 @@
             "Properties": {
               "ApiId": { "Ref": "HttpApi" },
               "Path": "/todos/{todoId}",
-              "Method": "GET"
+              "Method": "GET",
+              "Auth": {
+                "Authorizer": "JwtAuth"
+              }
             }
           },
           "UpdateTodo": {
@@ -299,7 +316,10 @@
             "Properties": {
               "ApiId": { "Ref": "HttpApi" },
               "Path": "/todos/{todoId}",
-              "Method": "PUT"
+              "Method": "PUT",
+              "Auth": {
+                "Authorizer": "JwtAuth"
+              }
             }
           },
           "DeleteTodo": {
@@ -307,7 +327,10 @@
             "Properties": {
               "ApiId": { "Ref": "HttpApi" },
               "Path": "/todos/{todoId}",
-              "Method": "DELETE"
+              "Method": "DELETE",
+              "Auth": {
+                "Authorizer": "JwtAuth"
+              }
             }
           },
           "ListTodos": {
@@ -315,7 +338,10 @@
             "Properties": {
               "ApiId": { "Ref": "HttpApi" },
               "Path": "/todos",
-              "Method": "GET"
+              "Method": "GET",
+              "Auth": {
+                "Authorizer": "JwtAuth"
+              }
             }
           }
         }

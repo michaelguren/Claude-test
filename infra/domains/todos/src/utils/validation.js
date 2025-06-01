@@ -8,18 +8,9 @@ const {
 } = require("../utils-shared/helpers");
 const constants = require("./constants");
 
-const validateCreateTodo = (todoData, userId) => {
+const validateCreateTodo = (todoData) => {
   if (!todoData) {
     throw new Error("TODO data is required");
-  }
-
-  // Validate user ID
-  if (!isNotEmpty(userId)) {
-    throw new Error("User ID is required");
-  }
-
-  if (!isValidULID(userId)) {
-    throw new Error("Invalid User ID format");
   }
 
   // Validate text
@@ -47,7 +38,6 @@ const validateCreateTodo = (todoData, userId) => {
   // Return sanitized data
   return {
     text: sanitizedText,
-    userId: userId,
   };
 };
 
@@ -105,21 +95,8 @@ const validateTodoId = (todoId) => {
   return todoId;
 };
 
-const validateUserId = (userId) => {
-  if (!isNotEmpty(userId)) {
-    throw new Error("User ID is required");
-  }
-
-  if (!isValidULID(userId)) {
-    throw new Error("Invalid User ID format");
-  }
-
-  return userId;
-};
-
 module.exports = {
   validateCreateTodo,
   validateUpdateTodo,
   validateTodoId,
-  validateUserId,
 };

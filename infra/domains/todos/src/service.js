@@ -7,15 +7,15 @@ const repository = require("./repository");
 const validation = require("./utils/validation");
 const constants = require("./utils/constants");
 
-const createTodo = async (todoData, userId) => {
+const createTodo = async (todoData, userEmail) => {
   try {
     // Validate input
-    const validatedData = validation.validateCreateTodo(todoData, userId);
+    const validatedData = validation.validateCreateTodo(todoData);
 
     // Build TODO object
     const todo = {
       todoId: generateULID(),
-      userId: validatedData.userId,
+      userEmail: userEmail,
       text: validatedData.text,
       completed: false,
       status: constants.TODO_STATUS_ACTIVE,
@@ -27,34 +27,31 @@ const createTodo = async (todoData, userId) => {
     await repository.createTodo(todo);
     logInfo("Service.createTodo", "TODO created successfully", {
       todoId: todo.todoId,
-      userId: todo.userId,
+      userEmail: todo.userEmail,
     });
 
     return todo;
   } catch (error) {
-    logError("Service.createTodo", error, { todoData, userId });
+    logError("Service.createTodo", error, { todoData, userEmail });
     throw error;
   }
 };
 
-const getTodoById = async (todoId, userId) => {
+const getTodoById = async (todoId, userEmail) => {
   try {
     validation.validateTodoId(todoId);
-    validation.validateUserId(userId);
 
-    const todo = await repository.getTodoById(todoId, userId);
+    const todo = await repository.getTodoById(todoId, userEmail);
     return todo;
   } catch (error) {
-    logError("Service.getTodoById", error, { todoId, userId });
+    logError("Service.getTodoById", error, { todoId, userEmail });
     throw error;
   }
 };
 
-const listTodos = async (userId, filters = {}) => {
+const listTodos = async (userEmail, filters = {}) => {
   try {
-    validation.validateUserId(userId);
-
-    const todos = await repository.listTodosByUserId(userId);
+    const todos = await repository.listTodosByUserEmail(userEmail);
 
     // Apply client-side filtering if needed
     let filteredTodos = todos;
@@ -75,7 +72,7 @@ const listTodos = async (userId, filters = {}) => {
       "Service.listTodos",
       `Retrieved ${filteredTodos.length} todos for user`,
       {
-        userId,
+        userEmail,
         totalTodos: todos.length,
         filteredTodos: filteredTodos.length,
       }
@@ -83,19 +80,18 @@ const listTodos = async (userId, filters = {}) => {
 
     return filteredTodos;
   } catch (error) {
-    logError("Service.listTodos", error, { userId, filters });
+    logError("Service.listTodos", error, { userEmail, filters });
     throw error;
   }
 };
 
-const updateTodo = async (todoId, todoData, userId) => {
+const updateTodo = async (todoId, todoData, userEmail) => {
   try {
     validation.validateTodoId(todoId);
-    validation.validateUserId(userId);
     const validatedUpdates = validation.validateUpdateTodo(todoData);
 
     // Check if TODO exists and belongs to user
-    const existingTodo = await repository.getTodoById(todoId, userId);
+    const existingTodo = await repository.getTodoById(todoId, userEmail);
     if (!existingTodo) {
       throw new Error("TODO not found");
     }
@@ -118,47 +114,45 @@ const updateTodo = async (todoId, todoData, userId) => {
     await repository.updateTodo(updatedTodo);
     logInfo("Service.updateTodo", "TODO updated successfully", {
       todoId,
-      userId,
+      userEmail,
       updates: Object.keys(validatedUpdates),
     });
 
     return updatedTodo;
   } catch (error) {
-    logError("Service.updateTodo", error, { todoId, todoData, userId });
+    logError("Service.updateTodo", error, { todoId, todoData, userEmail });
     throw error;
   }
 };
 
-const deleteTodo = async (todoId, userId) => {
+const deleteTodo = async (todoId, userEmail) => {
   try {
     validation.validateTodoId(todoId);
-    validation.validateUserId(userId);
 
     // Check if TODO exists and belongs to user
-    const existingTodo = await repository.getTodoById(todoId, userId);
+    const existingTodo = await repository.getTodoById(todoId, userEmail);
     if (!existingTodo) {
       throw new Error("TODO not found");
     }
 
     // Delete TODO
-    await repository.deleteTodo(todoId, userId);
+    await repository.deleteTodo(todoId, userEmail);
     logInfo("Service.deleteTodo", "TODO deleted successfully", {
       todoId,
-      userId,
+      userEmail,
     });
   } catch (error) {
-    logError("Service.deleteTodo", error, { todoId, userId });
+    logError("Service.deleteTodo", error, { todoId, userEmail });
     throw error;
   }
 };
 
-const toggleTodo = async (todoId, userId) => {
+const toggleTodo = async (todoId, userEmail) => {
   try {
     validation.validateTodoId(todoId);
-    validation.validateUserId(userId);
 
     // Get current TODO
-    const existingTodo = await repository.getTodoById(todoId, userId);
+    const existingTodo = await repository.getTodoById(todoId, userEmail);
     if (!existingTodo) {
       throw new Error("TODO not found");
     }
@@ -176,13 +170,13 @@ const toggleTodo = async (todoId, userId) => {
     await repository.updateTodo(updatedTodo);
     logInfo("Service.toggleTodo", "TODO toggled successfully", {
       todoId,
-      userId,
+      userEmail,
       completed: updatedTodo.completed,
     });
 
     return updatedTodo;
   } catch (error) {
-    logError("Service.toggleTodo", error, { todoId, userId });
+    logError("Service.toggleTodo", error, { todoId, userEmail });
     throw error;
   }
 };
