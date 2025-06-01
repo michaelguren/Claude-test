@@ -1,34 +1,32 @@
 /**
- * Real authentication module for email/password auth
- * No external dependencies - pure vanilla JavaScript
+ * Clean authentication module for email/password auth
+ * Simplified for the 3-endpoint auth flow: signup → verify → login
  */
 
-// auth.js
-
-// Auth state and tokens
-const AUTH_STATE = {
-  isAuthenticated: false,
-  user: null,
+// Auth state
+let authState = {
   token: null,
+  user: null,
   tokenExpiry: null,
+  isAuthenticated: false,
 };
 
-// Initialize auth state from storage
-function initAuth() {
-  console.log("Initializing real auth module");
+// Initialize auth from localStorage
+function init() {
+  console.log("Initializing auth module");
 
   try {
-    const storedAuth = localStorage.getItem("auth");
-    if (storedAuth) {
-      const authData = JSON.parse(storedAuth);
+    const stored = localStorage.getItem("auth");
+    if (stored) {
+      const data = JSON.parse(stored);
 
-      // Check if token is expired
-      if (authData.tokenExpiry && new Date(authData.tokenExpiry) > new Date()) {
-        Object.assign(AUTH_STATE, authData);
+      // Check if token is still valid
+      if (data.tokenExpiry && new Date(data.tokenExpiry) > new Date()) {
+        authState = { ...data, isAuthenticated: true };
         console.log("Auth restored from storage");
         return true;
       } else {
-        // Token expired, clear storage
+        // Token expired
         localStorage.removeItem("auth");
         console.log("Stored token expired");
       }
@@ -41,36 +39,33 @@ function initAuth() {
   return false;
 }
 
-// Register new user (sends verification code)
-async function register(email, password) {
+// Signup: Create account and send verification email
+async function signup(email, password) {
   const response = await fetch(`${window.APP_CONFIG.apiBaseUrl}/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, password }),
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Registration failed");
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Signup failed");
   }
 
   return response.json();
 }
 
-// Complete registration with verification code
-async function completeRegistration(email, code) {
-  const response = await fetch(
-    `${window.APP_CONFIG.apiBaseUrl}/auth/verify-signup`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code, password }), // make sure password is passed
-    }
-  );
+// Verify email with code
+async function verify(email, code) {
+  const response = await fetch(`${window.APP_CONFIG.apiBaseUrl}/auth/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Email verification failed");
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Verification failed");
   }
 
   return response.json();
@@ -85,75 +80,71 @@ async function login(email, password) {
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await response.json().catch(() => ({}));
     throw new Error(error.error || "Login failed");
   }
 
   const result = await response.json();
 
   // Store auth state
-  AUTH_STATE.isAuthenticated = true;
-  AUTH_STATE.user = result.user;
-  AUTH_STATE.token = result.token;
-  AUTH_STATE.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  authState = {
+    token: result.token,
+    user: result.user,
+    tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    isAuthenticated: true,
+  };
 
   // Save to localStorage
-  localStorage.setItem("auth", JSON.stringify(AUTH_STATE));
+  localStorage.setItem("auth", JSON.stringify(authState));
+  console.log("Login successful");
 
-  console.log("Login successful, auth state saved");
   return result;
 }
 
 // Sign out
 function signOut() {
-  AUTH_STATE.isAuthenticated = false;
-  AUTH_STATE.user = null;
-  AUTH_STATE.token = null;
-  AUTH_STATE.tokenExpiry = null;
+  authState = {
+    token: null,
+    user: null,
+    tokenExpiry: null,
+    isAuthenticated: false,
+  };
   localStorage.removeItem("auth");
   console.log("User signed out");
 }
 
-// Check if authenticated
+// Get current state
 function isAuthenticated() {
   return (
-    AUTH_STATE.isAuthenticated &&
-    AUTH_STATE.tokenExpiry &&
-    new Date(AUTH_STATE.tokenExpiry) > new Date()
+    authState.isAuthenticated &&
+    authState.token &&
+    authState.tokenExpiry &&
+    new Date(authState.tokenExpiry) > new Date()
   );
 }
 
-// Get access token for API calls
 function getAccessToken() {
-  return isAuthenticated() ? AUTH_STATE.token : null;
+  return isAuthenticated() ? authState.token : null;
 }
 
-// Get current user
 function getCurrentUser() {
-  return isAuthenticated() ? AUTH_STATE.user : null;
+  return isAuthenticated() ? authState.user : null;
 }
 
-// Get user ID (for compatibility with existing code)
 function getUserId() {
   const user = getCurrentUser();
-  return user ? user.id : null;
+  return user ? user.userId : null;
 }
 
-// Not used in email/password flow, but keeping for compatibility
-function handleCallback() {
-  return false;
-}
-
-// Export public API
+// Export API
 window.Auth = {
-  init: initAuth,
-  register,
-  completeRegistration,
+  init,
+  signup,
+  verify,
   login,
   signOut,
   isAuthenticated,
   getAccessToken,
   getCurrentUser,
   getUserId,
-  handleCallback,
 };

@@ -1,24 +1,23 @@
 /**
- * API client for TODO application
- * Uses real authentication with JWT tokens
+ * Clean API client for TODO operations
+ * Handles authenticated requests with proper error handling
  */
-const Api = {};
+
+let baseUrl = "";
 
 // Initialize API client
 function init(config) {
-  Api.baseUrl = "https://nfwfkybvol.execute-api.us-east-1.amazonaws.com";
-
-  console.log("API initialized with base URL:", Api.baseUrl);
+  baseUrl = config?.apiBaseUrl || window.APP_CONFIG?.apiBaseUrl || "";
+  console.log("API initialized with base URL:", baseUrl);
 }
 
-// Generic fetch wrapper with auth token
-async function fetchWithAuth(url, options = {}) {
+// Authenticated fetch wrapper
+async function authenticatedFetch(url, options = {}) {
   if (!window.Auth.isAuthenticated()) {
     throw new Error("User not authenticated");
   }
 
   const token = window.Auth.getAccessToken();
-
   const config = {
     headers: {
       "Content-Type": "application/json",
@@ -34,23 +33,21 @@ async function fetchWithAuth(url, options = {}) {
     // Handle unauthorized responses
     if (response.status === 401) {
       window.Auth.signOut();
-      throw new Error("Unauthorized - please sign in again");
+      throw new Error("Session expired - please sign in again");
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error || `HTTP ${response.status}: ${response.statusText}`
-      );
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    // Handle non-JSON responses
+    // Handle different response types
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       return await response.json();
     }
 
-    // No content
+    // No content (204) or other responses
     return null;
   } catch (error) {
     if (error.name === "TypeError") {
@@ -60,10 +57,9 @@ async function fetchWithAuth(url, options = {}) {
   }
 }
 
-// Get all TODOs for the current user
+// Get all TODOs for current user
 async function getTodos() {
-  const url = `${Api.baseUrl}/todos`;
-  return await fetchWithAuth(url);
+  return authenticatedFetch(`${baseUrl}/todos`);
 }
 
 // Create a new TODO
@@ -72,10 +68,9 @@ async function createTodo(text) {
     throw new Error("TODO text cannot be empty");
   }
 
-  const url = `${Api.baseUrl}/todos`;
-  return await fetchWithAuth(url, {
+  return authenticatedFetch(`${baseUrl}/todos`, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: text.trim() }),
   });
 }
 
@@ -85,8 +80,7 @@ async function updateTodo(todoId, updates) {
     throw new Error("TODO ID is required");
   }
 
-  const url = `${Api.baseUrl}/todos/${todoId}`;
-  return await fetchWithAuth(url, {
+  return authenticatedFetch(`${baseUrl}/todos/${todoId}`, {
     method: "PUT",
     body: JSON.stringify(updates),
   });
@@ -98,33 +92,34 @@ async function deleteTodo(todoId) {
     throw new Error("TODO ID is required");
   }
 
-  const url = `${Api.baseUrl}/todos/${todoId}`;
-  await fetchWithAuth(url, {
+  return authenticatedFetch(`${baseUrl}/todos/${todoId}`, {
     method: "DELETE",
   });
 }
 
-// Toggle completed status of a TODO
+// Toggle TODO completion status
 async function toggleTodo(todoId) {
   if (!todoId) {
     throw new Error("TODO ID is required");
   }
 
+  // Get current todos to find the one to toggle
   const todos = await getTodos();
   const todo = todos.find((t) => t.todoId === todoId);
+
   if (!todo) {
-    throw new Error(`TODO with ID ${todoId} not found`);
+    throw new Error("TODO not found");
   }
+
   return updateTodo(todoId, { completed: !todo.completed });
 }
 
-// Public API
-Api.init = init;
-Api.getTodos = getTodos;
-Api.createTodo = createTodo;
-Api.updateTodo = updateTodo;
-Api.deleteTodo = deleteTodo;
-Api.toggleTodo = toggleTodo;
-
-// Export for global access
-window.Api = Api;
+// Export API
+window.Api = {
+  init,
+  getTodos,
+  createTodo,
+  updateTodo,
+  deleteTodo,
+  toggleTodo,
+};

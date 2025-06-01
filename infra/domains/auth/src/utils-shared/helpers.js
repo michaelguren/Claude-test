@@ -70,7 +70,7 @@ const isValidEmail = (email) => {
 // Normalize email to consistent format (lowercase, trimmed)
 const normalizeEmail = (email) => {
   if (!email) return email;
-  return email.toLowerCase().trim();
+  return email.trim().toLowerCase();
 };
 
 // Validate ULID format
