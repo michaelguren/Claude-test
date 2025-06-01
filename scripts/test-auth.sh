@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Auth API Test Script
-# Tests the complete email/password authentication flow with new logical API routes
+# Tests the simplified 3-endpoint authentication flow
 
 # Configuration
 STACK_NAME="minimalist-todo-20250528"
@@ -11,8 +11,8 @@ AWS_PROFILE="dev"
 TEST_EMAIL="mguren@mac.com"
 TEST_PASSWORD="securepassword123"
 
-echo "🧪 Testing Auth API Flow (New Routes)"
-echo "====================================="
+echo "🧪 Testing Simplified Auth API Flow (3 Endpoints)"
+echo "================================================="
 
 # Get API URL from CloudFormation stack
 echo "📡 Getting API URL from stack outputs..."
@@ -66,68 +66,74 @@ call_api() {
   return $((http_status >= 400 ? 1 : 0))
 }
 
-# Test 1: Start signup process (send verification code)
-echo "🔍 Test 1: Start Signup Process"
-echo "-------------------------------"
-if call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\"}" "Starting signup and sending verification code"; then
-  echo "✅ Signup initiated and verification code sent successfully"
+# Test 1: Create account and send verification (NEW SIMPLIFIED ENDPOINT)
+echo "🔍 Test 1: Signup - Create Account & Send Verification"
+echo "-----------------------------------------------------"
+if call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" "Creating account and sending verification"; then
+  echo "✅ Account created and verification email sent successfully"
 else
-  echo "❌ Failed to start signup process"
+  echo "❌ Failed to create account"
   exit 1
 fi
 
-# Test 2: Try to start signup again (should work - resend code)
-echo "🔍 Test 2: Resend Verification Code"
-echo "-----------------------------------"
-if call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\"}" "Attempting to resend verification code"; then
-  echo "✅ Verification code resent successfully"
-else
-  echo "❌ Failed to resend verification code"
+# Test 2: Try to signup again (should fail - user already exists)
+echo "🔍 Test 2: Signup Again - Should Fail (User Exists)"
+echo "--------------------------------------------------"
+if call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" "Attempting signup again (should fail)"; then
+  echo "❌ Duplicate signup should have failed!"
   exit 1
+else
+  echo "✅ Duplicate signup correctly rejected"
 fi
 
 # Test 3: Try to verify with wrong code (should fail)
 echo "🔍 Test 3: Invalid Verification Code (should fail)"
 echo "--------------------------------------------------"
-if call_api "POST" "/auth/verify-signup" "{\"email\":\"$TEST_EMAIL\",\"code\":\"000000\",\"password\":\"$TEST_PASSWORD\"}" "Testing invalid verification code"; then
+if call_api "POST" "/auth/verify" "{\"email\":\"$TEST_EMAIL\",\"code\":\"000000\"}" "Testing invalid verification code"; then
   echo "❌ Invalid verification code should have failed!"
   exit 1
 else
   echo "✅ Invalid verification code correctly rejected"
 fi
 
-# Test 4: Try to login before completing registration (should fail)
-echo "🔍 Test 4: Login Before Registration Complete (should fail)"
-echo "-----------------------------------------------------------"
-if call_api "POST" "/auth/login" "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" "Attempting login before registration complete"; then
-  echo "❌ Login should have failed before registration completion!"
+# Test 4: Try to login before verification (should fail)
+echo "🔍 Test 4: Login Before Verification (should fail)"
+echo "--------------------------------------------------"
+if call_api "POST" "/auth/login" "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" "Attempting login before verification"; then
+  echo "❌ Login should have failed before verification!"
   exit 1
 else
-  echo "✅ Login correctly rejected before registration completion"
+  echo "✅ Login correctly rejected before verification"
 fi
 
 # Test 5: Test error cases for verification
 echo "🔍 Test 5: Verification Error Cases"
 echo "-----------------------------------"
 
-echo "Testing missing password in verify-signup..."
-call_api "POST" "/auth/verify-signup" "{\"email\":\"$TEST_EMAIL\",\"code\":\"123456\"}" "Missing password" || echo "✅ Missing password correctly rejected"
+echo "Testing missing code in verify..."
+call_api "POST" "/auth/verify" "{\"email\":\"$TEST_EMAIL\"}" "Missing verification code" || echo "✅ Missing code correctly rejected"
 
-echo "Testing short password in verify-signup..."
-call_api "POST" "/auth/verify-signup" "{\"email\":\"$TEST_EMAIL\",\"code\":\"123456\",\"password\":\"123\"}" "Short password" || echo "✅ Short password correctly rejected"
+echo "Testing missing email in verify..."
+call_api "POST" "/auth/verify" "{\"code\":\"123456\"}" "Missing email" || echo "✅ Missing email correctly rejected"
 
-echo "Testing missing email in verify-signup..."
-call_api "POST" "/auth/verify-signup" "{\"code\":\"123456\",\"password\":\"$TEST_PASSWORD\"}" "Missing email" || echo "✅ Missing email correctly rejected"
+echo "Testing empty payload in verify..."
+call_api "POST" "/auth/verify" "{}" "Empty payload" || echo "✅ Empty payload correctly rejected"
 
 # Test 6: Test error cases for signup
 echo "🔍 Test 6: Signup Error Cases"
 echo "-----------------------------"
 
 echo "Testing invalid email format..."
-call_api "POST" "/auth/signup" "{\"email\":\"invalid-email\"}" "Invalid email format" || echo "✅ Invalid email correctly rejected"
+call_api "POST" "/auth/signup" "{\"email\":\"invalid-email\",\"password\":\"$TEST_PASSWORD\"}" "Invalid email format" || echo "✅ Invalid email correctly rejected"
+
+echo "Testing missing password..."
+call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\"}" "Missing password" || echo "✅ Missing password correctly rejected"
+
+echo "Testing short password..."
+call_api "POST" "/auth/signup" "{\"email\":\"$TEST_EMAIL\",\"password\":\"123\"}" "Short password" || echo "✅ Short password correctly rejected"
 
 echo "Testing missing email..."
-call_api "POST" "/auth/signup" "{}" "Missing email" || echo "✅ Missing email correctly rejected"
+call_api "POST" "/auth/signup" "{\"password\":\"$TEST_PASSWORD\"}" "Missing email" || echo "✅ Missing email correctly rejected"
 
 # Test 7: Test error cases for login
 echo "🔍 Test 7: Login Error Cases"
@@ -142,37 +148,40 @@ call_api "POST" "/auth/login" "{\"password\":\"$TEST_PASSWORD\"}" "Missing email
 echo "Testing invalid email format in login..."
 call_api "POST" "/auth/login" "{\"email\":\"invalid-email\",\"password\":\"$TEST_PASSWORD\"}" "Invalid email format" || echo "✅ Invalid email correctly rejected"
 
+echo "Testing wrong password..."
+call_api "POST" "/auth/login" "{\"email\":\"$TEST_EMAIL\",\"password\":\"wrongpassword\"}" "Wrong password" || echo "✅ Wrong password correctly rejected"
+
 # Manual step for email verification
 echo "📧 Manual Step Required:"
 echo "========================"
 echo "Check your email for the verification code, then run:"
 echo "./scripts/verify-auth.sh"
 echo
-echo "Or manually complete registration with:"
-echo "curl -X POST '$API_URL/auth/verify-signup' \\"
+echo "Or manually complete verification with:"
+echo "curl -X POST '$API_URL/auth/verify' \\"
 echo "  -H '$CONTENT_TYPE' \\"
-echo "  -d '{\"email\":\"$TEST_EMAIL\",\"code\":\"YOUR_CODE_HERE\",\"password\":\"$TEST_PASSWORD\"}'"
+echo "  -d '{\"email\":\"$TEST_EMAIL\",\"code\":\"YOUR_CODE_HERE\"}'"
 echo
-echo "After completing registration, test login with:"
+echo "After completing verification, test login with:"
 echo "curl -X POST '$API_URL/auth/login' \\"
 echo "  -H '$CONTENT_TYPE' \\"
 echo "  -d '{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}'"
 echo
 
-echo "🎉 Auth API Tests Completed!"
-echo "=============================="
+echo "🎉 Simplified Auth API Tests Completed!"
+echo "======================================="
 echo "✅ API endpoints are responding correctly"
 echo "✅ Validation logic is working"
 echo "✅ Error handling is proper"
-echo "✅ New logical API flow is working"
+echo "✅ Simplified 3-endpoint flow is working"
+echo "✅ Duplicate signup prevention is working"
 echo
-echo "API Route Summary:"
-echo "- POST /auth/signup        → Send verification email"
-echo "- POST /auth/verify-signup → Complete registration with code + password"
-echo "- POST /auth/login         → Login existing user"
+echo "NEW API Route Summary:"
+echo "- POST /auth/signup   → Create account + send verification email"
+echo "- POST /auth/verify   → Verify email with code"
+echo "- POST /auth/login    → Login verified user"
 echo
 echo "Next steps:"
 echo "1. Check your email for the verification code"
-echo "2. Complete the registration using the verification script"
-echo "3. Test the login flow"
-echo "4. Test the frontend at http://localhost:8080"
+echo "2. Run ./scripts/verify-auth.sh to complete verification and test login"
+echo "3. Test the frontend at http://localhost:8080"

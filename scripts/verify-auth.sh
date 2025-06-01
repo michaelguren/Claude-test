@@ -11,8 +11,8 @@ AWS_PROFILE="dev"
 TEST_EMAIL="mguren@mac.com"
 TEST_PASSWORD="securepassword123"
 
-echo "🧪 Complete Registration and Login Test"
-echo "======================================="
+echo "🧪 Complete Verification and Login Test (Simplified Flow)"
+echo "========================================================="
 
 # Get API URL
 API_URL=$(aws cloudformation describe-stacks \
@@ -48,63 +48,33 @@ if ! [[ "$VERIFICATION_CODE" =~ ^[0-9]{6}$ ]]; then
 fi
 
 echo
-echo "🔍 Step 1: Complete Registration with Verification Code"
+echo "🔍 Step 1: Verify Email with Code (SIMPLIFIED ENDPOINT)"
 echo "------------------------------------------------------"
 
-# Complete registration with NEW endpoint
+# Verify email with NEW simplified endpoint
 response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
   -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"$TEST_EMAIL\",\"code\":\"$VERIFICATION_CODE\",\"password\":\"$TEST_PASSWORD\"}" \
-  "$API_URL/auth/verify-signup")
+  -d "{\"email\":\"$TEST_EMAIL\",\"code\":\"$VERIFICATION_CODE\"}" \
+  "$API_URL/auth/verify")
 
 http_body=$(echo "$response" | sed -E '$d')
 http_status=$(echo "$response" | tail -n1 | sed -E 's/.*:([0-9]+)$/\1/')
 
-echo "📤 POST /auth/verify-signup"
-echo "   Data: {\"email\":\"$TEST_EMAIL\",\"code\":\"$VERIFICATION_CODE\",\"password\":\"***\"}"
+echo "📤 POST /auth/verify"
+echo "   Data: {\"email\":\"$TEST_EMAIL\",\"code\":\"$VERIFICATION_CODE\"}"
 echo "   Status: $http_status"
 echo "   Response: $http_body"
 echo
 
-if [ "$http_status" -eq 201 ]; then
-  echo "✅ Registration completed successfully!"
-  
-  # Check if we got a token back (new flow auto-logs in)
-  token=$(echo "$http_body" | grep -o '"token":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
-  
-  if [ -n "$token" ]; then
-    echo "🎫 JWT Token received from registration: ${token:0:50}..."
-    echo "   (New flow automatically logs you in after verification)"
-    echo
-    
-    echo "🧪 Testing authenticated API call with registration token..."
-    
-    # Test users endpoint with token from registration
-    auth_test=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
-      -H "Authorization: Bearer $token" \
-      "$API_URL/users")
-    
-    auth_body=$(echo "$auth_test" | sed -E '$d')
-    auth_status=$(echo "$auth_test" | tail -n1 | sed -E 's/.*:([0-9]+)$/\1/')
-    
-    echo "📤 GET /users (with registration token)"
-    echo "   Status: $auth_status"
-    echo "   Response: $auth_body"
-    echo
-    
-    if [ "$auth_status" -eq 200 ]; then
-      echo "✅ Authenticated API call successful!"
-    else
-      echo "⚠️  Authenticated API call failed (JWT validation may not be set up yet)"
-    fi
-  fi
+if [ "$http_status" -eq 200 ]; then
+  echo "✅ Email verification completed successfully!"
   
   echo
-  echo "🔍 Step 2: Test Separate Login (should also work)"
-  echo "------------------------------------------------"
+  echo "🔍 Step 2: Test Login (Now Should Work)"
+  echo "--------------------------------------"
   
-  # Test separate login
+  # Test login after verification
   login_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
     -X POST \
     -H "Content-Type: application/json" \
@@ -121,54 +91,59 @@ if [ "$http_status" -eq 201 ]; then
   echo
   
   if [ "$login_status" -eq 200 ]; then
-    echo "✅ Separate login successful!"
+    echo "✅ Login successful!"
     
     # Extract token for further testing
     login_token=$(echo "$login_body" | grep -o '"token":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "")
     if [ -n "$login_token" ]; then
-      echo "🎫 JWT Token from login: ${login_token:0:50}..."
+      echo "🎫 JWT Token received: ${login_token:0:50}..."
       echo
       
-      echo "🧪 Testing authenticated API call with login token..."
+      echo "🧪 Testing authenticated API call..."
       
-      # Test users endpoint with login token
-      auth_test2=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+      # Test users endpoint with login token (if JWT auth is wired up)
+      auth_test=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
         -H "Authorization: Bearer $login_token" \
-        "$API_URL/users")
+        "$API_URL/users" 2>/dev/null || echo "SKIP
+HTTP_STATUS:000")
       
-      auth_body2=$(echo "$auth_test2" | sed -E '$d')
-      auth_status2=$(echo "$auth_test2" | tail -n1 | sed -E 's/.*:([0-9]+)$/\1/')
+      auth_body=$(echo "$auth_test" | sed -E '$d')
+      auth_status=$(echo "$auth_test" | tail -n1 | sed -E 's/.*:([0-9]+)$/\1/')
       
-      echo "📤 GET /users (with login token)"
-      echo "   Status: $auth_status2"
-      echo "   Response: $auth_body2"
-      echo
-      
-      if [ "$auth_status2" -eq 200 ]; then
-        echo "✅ Authenticated API call with login token successful!"
+      if [ "$auth_status" != "000" ]; then
+        echo "📤 GET /users (with JWT token)"
+        echo "   Status: $auth_status"
+        echo "   Response: $auth_body"
+        echo
+        
+        if [ "$auth_status" -eq 200 ]; then
+          echo "✅ Authenticated API call successful!"
+        else
+          echo "⚠️  Authenticated API call failed (JWT validation may not be set up yet)"
+        fi
       else
-        echo "⚠️  Authenticated API call failed (JWT validation may not be set up yet)"
+        echo "⚠️  Skipping authenticated API test (endpoint may not be available)"
       fi
     fi
     
   else
-    echo "❌ Separate login failed!"
-    echo "   This might indicate an issue with the user creation process"
+    echo "❌ Login failed after verification!"
+    echo "   This indicates an issue with the login logic"
     exit 1
   fi
   
 elif [ "$http_status" -eq 400 ]; then
-  echo "❌ Registration completion failed!"
+  echo "❌ Email verification failed!"
   echo "   Possible causes:"
   echo "   - Invalid or expired verification code"
+  echo "   - Incorrect email address"
   echo "   - Missing required fields"
-  echo "   - Password too short"
   echo
   echo "   Try running ./scripts/test-auth.sh again to get a fresh code"
   exit 1
 elif [ "$http_status" -eq 409 ]; then
-  echo "⚠️  User already exists and is verified"
-  echo "   Skipping to login test..."
+  echo "⚠️  User already verified"
+  echo "   Proceeding to test login..."
   echo
   
   # Test login directly
@@ -187,31 +162,31 @@ elif [ "$http_status" -eq 409 ]; then
   echo
   
   if [ "$login_status" -eq 200 ]; then
-    echo "✅ Login successful for existing user!"
+    echo "✅ Login successful for already verified user!"
   else
-    echo "❌ Login failed for existing user!"
+    echo "❌ Login failed for verified user!"
     exit 1
   fi
 else
-  echo "❌ Registration completion failed with unexpected status: $http_status"
+  echo "❌ Email verification failed with unexpected status: $http_status"
   exit 1
 fi
 
 echo
-echo "🎉 Complete Auth Flow Test Successful!"
-echo "======================================"
-echo "✅ New auth flow is working correctly:"
-echo "   1. POST /auth/signup        → Send verification email"  
-echo "   2. POST /auth/verify-signup → Complete registration + auto-login"
-echo "   3. POST /auth/login         → Login existing users"
+echo "🎉 Complete Simplified Auth Flow Test Successful!"
+echo "================================================="
+echo "✅ Simplified auth flow is working correctly:"
+echo "   1. POST /auth/signup  → Create account + send verification email"  
+echo "   2. POST /auth/verify  → Verify email with code"
+echo "   3. POST /auth/login   → Login verified users"
 echo
 echo "✅ JWT token generation works"
 echo "✅ User creation and verification works"
-echo "✅ Both registration and login flows work"
+echo "✅ Both verification and login flows work"
 echo
-echo "🚀 Your new auth backend is ready!"
+echo "🚀 Your simplified auth backend is ready!"
 echo
 echo "Next steps:"
+echo "- Update frontend to use new /auth/verify endpoint"
 echo "- Test the frontend at http://localhost:8080"
-echo "- Try the registration flow in the browser"
-echo "- Verify CORS issues are resolved"
+echo "- Verify the streamlined user experience"

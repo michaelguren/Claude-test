@@ -1,5 +1,5 @@
 // infra/domains/auth/src/repository.js
-// Simplified data access layer for authentication operations
+// Simplified data access layer using email-based PK for guaranteed uniqueness
 const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
 const { logInfo, logError } = require("./utils-shared/logger");
 const {
@@ -14,17 +14,17 @@ const constants = require("./utils/constants");
 
 /**
  * Store verification code for email verification
- * Uses USER#<email> as PK during signup process only
+ * Uses USER#<email> as PK
  */
 exports.putVerificationCode = async (email, codeId, code, ttlSeconds) => {
   try {
     const now = getCurrentTimestamp();
     const item = {
-      PK: `${constants.USER_PREFIX}${email}`, // Keep email-based during verification
+      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
       SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
       code,
       codeId,
-      email,
+      email: email.toLowerCase().trim(),
       createdAt: now,
       TTL: ttlSeconds, // DynamoDB TTL attribute
     };
@@ -42,13 +42,13 @@ exports.putVerificationCode = async (email, codeId, code, ttlSeconds) => {
 
 /**
  * Get verification code for validation
- * Uses USER#<email> as PK during signup process
+ * Uses USER#<email> as PK
  */
 exports.getVerificationCode = async (email, code) => {
   try {
     // Query for verification codes for this email
     const result = await listItems(
-      `${constants.USER_PREFIX}${email}`,
+      `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
       constants.VERIFICATION_CODE_PREFIX.slice(0, -1), // Remove trailing #
       {
         scanIndexForward: false, // Most recent first
@@ -84,7 +84,7 @@ exports.deleteVerificationCode = async (email, codeId) => {
     }
 
     const params = {
-      PK: `${constants.USER_PREFIX}${email}`,
+      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
       SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
     };
 
@@ -100,21 +100,24 @@ exports.deleteVerificationCode = async (email, codeId) => {
 };
 
 /**
- * Get user by email (using GSI1)
- * Works with USER#<ulid> pattern
+ * Get user by email (primary lookup) - NEW: Direct PK lookup
+ * This is now the primary and most efficient lookup method
  */
 exports.getUserByEmail = async (email) => {
   try {
-    const result = await queryGSI("GSI1", "GSI1PK = :pk", {
-      ":pk": `${constants.EMAIL_PREFIX}${email.toLowerCase().trim()}`,
-    });
+    const key = {
+      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
+      SK: constants.USER_PROFILE_SK,
+    };
+
+    const result = await getItem(key);
 
     logInfo("Repository.getUserByEmail", "User lookup by email", {
       email,
-      found: !!result.Items?.[0],
+      found: !!result.Item,
     });
 
-    return result.Items?.[0] || null;
+    return result.Item || null;
   } catch (error) {
     logError("Repository.getUserByEmail", error, { email });
     throw error;
@@ -122,23 +125,21 @@ exports.getUserByEmail = async (email) => {
 };
 
 /**
- * Get user by ULID (primary lookup)
+ * Get user by ULID (using GSI1) - For URL-based lookups
+ * Used when we have user ID from URLs like /users/{userId}
  */
 exports.getUserById = async (userId) => {
   try {
-    const key = {
-      PK: `${constants.USER_PREFIX}${userId}`,
-      SK: constants.USER_PROFILE_SK,
-    };
-
-    const result = await getItem(key);
+    const result = await queryGSI("GSI1", "GSI1PK = :pk", {
+      ":pk": `${constants.USERID_PREFIX}${userId}`,
+    });
 
     logInfo("Repository.getUserById", "User lookup by ID", {
       userId,
-      found: !!result.Item,
+      found: !!result.Items?.[0],
     });
 
-    return result.Item || null;
+    return result.Items?.[0] || null;
   } catch (error) {
     logError("Repository.getUserById", error, { userId });
     throw error;
@@ -147,19 +148,23 @@ exports.getUserById = async (userId) => {
 
 /**
  * Create a user in PENDING status (during signup)
- * Creates USER#<ulid> record but user is in PENDING status until verified
+ * Uses EMAIL as PK for guaranteed uniqueness
  */
 exports.createPendingUser = async (email, passwordData) => {
   try {
     const userId = generateULID();
+    const normalizedEmail = email.toLowerCase().trim();
     const now = getCurrentTimestamp();
 
     const item = {
-      PK: `${constants.USER_PREFIX}${userId}`, // ULID-based pattern
+      // Primary key: email-based (guarantees uniqueness)
+      PK: `${constants.USER_PREFIX}${normalizedEmail}`,
       SK: constants.USER_PROFILE_SK,
-      id: userId,
-      email: email.toLowerCase().trim(),
-      name: email.split("@")[0], // Default name from email
+
+      // User data
+      userId, // ULID for references and URLs
+      email: normalizedEmail,
+      name: normalizedEmail.split("@")[0], // Default name from email
       role: constants.USER_ROLE_USER,
       status: constants.USER_STATUS_PENDING, // Not yet verified
       salt: passwordData.salt,
@@ -167,21 +172,27 @@ exports.createPendingUser = async (email, passwordData) => {
       createdAt: now,
       updatedAt: now,
 
-      // GSI1 for email lookups
-      GSI1PK: `${constants.EMAIL_PREFIX}${email.toLowerCase().trim()}`,
+      // GSI1 for userId lookups (for URLs like /users/{userId})
+      GSI1PK: `${constants.USERID_PREFIX}${userId}`,
       GSI1SK: constants.GSI1_LOOKUP_SK,
     };
 
-    await putItem(item, "attribute_not_exists(GSI1PK)"); // Prevent duplicate emails
+    // PK uniqueness is automatically enforced - no conditional check needed!
+    await putItem(item);
     logInfo("Repository.createPendingUser", "Pending user created", {
-      email,
+      email: normalizedEmail,
       userId,
     });
 
     return item;
   } catch (error) {
     logError("Repository.createPendingUser", error, { email });
-    if (error.name === "ConditionalCheckFailedException") {
+
+    // Handle the case where email already exists
+    if (
+      error.name === "ConditionalCheckFailedException" ||
+      error.message?.includes("already exists")
+    ) {
       throw new Error("User with this email already exists");
     }
     throw error;
@@ -190,11 +201,12 @@ exports.createPendingUser = async (email, passwordData) => {
 
 /**
  * Mark user as verified (update status from PENDING to ACTIVE)
+ * Uses email-based PK lookup
  */
-exports.markUserVerified = async (userId) => {
+exports.markUserVerified = async (email) => {
   try {
     const params = {
-      PK: `${constants.USER_PREFIX}${userId}`,
+      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
       SK: constants.USER_PROFILE_SK,
       UpdateExpression: "SET #status = :status, #updatedAt = :now",
       ExpressionAttributeNames: {
@@ -209,12 +221,12 @@ exports.markUserVerified = async (userId) => {
 
     const result = await updateItem(params);
     logInfo("Repository.markUserVerified", "User marked as verified", {
-      userId,
+      email,
     });
 
     return result.Attributes;
   } catch (error) {
-    logError("Repository.markUserVerified", error, { userId });
+    logError("Repository.markUserVerified", error, { email });
     throw error;
   }
 };

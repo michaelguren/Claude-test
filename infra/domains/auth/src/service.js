@@ -97,25 +97,24 @@ const createUserAndSendVerification = async (email, password) => {
     // Check if user already exists
     const existingUser = await repository.getUserByEmail(email);
     if (existingUser) {
+      // User already exists - don't allow signup again (security issue)
       if (existingUser.status === constants.USER_STATUS_ACTIVE) {
         throw new Error("User already exists and is verified");
+      } else {
+        throw new Error(
+          "User already exists. Please check your email for verification code or contact support."
+        );
       }
-      // User exists but not verified - resend code
-      logInfo(
-        "Service.createUserAndSendVerification",
-        "Resending verification for existing user",
-        { email }
-      );
-    } else {
-      // Create new user in PENDING status
-      const { salt, hash } = hashPassword(password);
-      await repository.createPendingUser(email, { salt, hash });
-      logInfo(
-        "Service.createUserAndSendVerification",
-        "New user created in pending status",
-        { email }
-      );
     }
+
+    // Create new user in PENDING status
+    const { salt, hash } = hashPassword(password);
+    await repository.createPendingUser(email, { salt, hash });
+    logInfo(
+      "Service.createUserAndSendVerification",
+      "New user created in pending status",
+      { email }
+    );
 
     // Generate and send verification code (whether new or existing user)
     const code = Math.floor(100000 + Math.random() * 900000).toString();
