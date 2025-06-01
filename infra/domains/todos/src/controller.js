@@ -11,14 +11,31 @@ const { logInfo, logError } = require("./utils-shared/logger");
 const service = require("./service");
 
 const extractUserEmail = (event) => {
-  const jwtUserEmail = event.requestContext?.authorizer?.jwt?.claims?.email;
-  if (jwtUserEmail) {
-    logInfo("Controller.extractUserEmail", "User email from JWT", {
-      userEmail: jwtUserEmail.substring(0, 3) + "***",
-    });
-    return jwtUserEmail;
+  try {
+    // Extract user email from Lambda authorizer context
+    const authorizerContext = event.requestContext?.authorizer?.lambda;
+
+    if (authorizerContext?.email) {
+      const userEmail = authorizerContext.email;
+      logInfo(
+        "Controller.extractUserEmail",
+        "User email from authorizer context",
+        {
+          userEmail: userEmail.substring(0, 3) + "***",
+        }
+      );
+      return userEmail;
+    }
+
+    logWarning(
+      "Controller.extractUserEmail",
+      "No user email found in authorizer context"
+    );
+    return null;
+  } catch (error) {
+    logError("Controller.extractUserEmail", error);
+    return null;
   }
-  return null;
 };
 
 const handleRequest = async (event) => {

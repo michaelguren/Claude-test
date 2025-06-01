@@ -39,12 +39,15 @@
       "Properties": {
         "Auth": {
           "Authorizers": {
-            "JwtAuth": {
-              "JwtConfiguration": {
-                "issuer": "minimalist-todo-app",
-                "audience": ["minimalist-todo-api"]
+            "LambdaAuth": {
+              "FunctionArn": { "Fn::GetAtt": ["AuthorizerFunction", "Arn"] },
+              "FunctionInvokeRole": {
+                "Fn::GetAtt": ["AuthorizerInvokeRole", "Arn"]
               },
-              "IdentitySource": "$request.header.Authorization"
+              "Identity": {
+                "Headers": ["Authorization"]
+              },
+              "AuthorizerPayloadFormatVersion": "1.0"
             }
           }
         },
@@ -64,6 +67,66 @@
           "ThrottlingBurstLimit": 100,
           "ThrottlingRateLimit": 50
         }
+      }
+    },
+
+    "AuthorizerFunction": {
+      "Type": "AWS::Serverless::Function",
+      "Description": "JWT Lambda authorizer for API Gateway",
+      "Properties": {
+        "CodeUri": "domains/auth/",
+        "Handler": "src/authorizer.handler",
+        "Environment": {
+          "Variables": {
+            "JWT_SECRET_PARAMETER_NAME": "/minimalist-todo/jwt-secret"
+          }
+        },
+        "Policies": [
+          {
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["ssm:GetParameter"],
+                "Resource": {
+                  "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/minimalist-todo/jwt-secret"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    "AuthorizerInvokeRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "apigateway.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "InvokeAuthorizerFunction",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "lambda:InvokeFunction",
+                  "Resource": { "Fn::GetAtt": ["AuthorizerFunction", "Arn"] }
+                }
+              ]
+            }
+          }
+        ]
       }
     },
 
@@ -296,7 +359,7 @@
               "Path": "/todos",
               "Method": "POST",
               "Auth": {
-                "Authorizer": "JwtAuth"
+                "Authorizer": "LambdaAuth"
               }
             }
           },
@@ -307,7 +370,7 @@
               "Path": "/todos/{todoId}",
               "Method": "GET",
               "Auth": {
-                "Authorizer": "JwtAuth"
+                "Authorizer": "LambdaAuth"
               }
             }
           },
@@ -318,7 +381,7 @@
               "Path": "/todos/{todoId}",
               "Method": "PUT",
               "Auth": {
-                "Authorizer": "JwtAuth"
+                "Authorizer": "LambdaAuth"
               }
             }
           },
@@ -329,7 +392,7 @@
               "Path": "/todos/{todoId}",
               "Method": "DELETE",
               "Auth": {
-                "Authorizer": "JwtAuth"
+                "Authorizer": "LambdaAuth"
               }
             }
           },
@@ -340,7 +403,7 @@
               "Path": "/todos",
               "Method": "GET",
               "Auth": {
-                "Authorizer": "JwtAuth"
+                "Authorizer": "LambdaAuth"
               }
             }
           }

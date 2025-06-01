@@ -7,7 +7,17 @@ let baseUrl = "";
 
 // Initialize API client
 function init(config) {
-  baseUrl = config?.apiBaseUrl || window.APP_CONFIG?.apiBaseUrl || "";
+  if (config?.apiBaseUrl) {
+    baseUrl = config.apiBaseUrl;
+  } else {
+    // Fallback to window.APP_CONFIG if no config passed
+    baseUrl = window.APP_CONFIG?.apiBaseUrl;
+  }
+
+  if (!baseUrl) {
+    throw new Error("API base URL not configured");
+  }
+
   console.log("API initialized with base URL:", baseUrl);
 }
 

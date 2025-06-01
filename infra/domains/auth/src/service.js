@@ -64,7 +64,7 @@ const generateToken = async (user) => {
     JSON.stringify({
       iss: "minimalist-todo-app", // Your app identifier
       aud: "minimalist-todo-api", // Your API audience
-      sub: user.id, // User ULID (keep existing)
+      sub: user.userId, // User ULID (keep existing)
       email: user.email, // User email (keep existing)
       role: user.role,
       iat: Math.floor(Date.now() / 1000), // Keep existing
