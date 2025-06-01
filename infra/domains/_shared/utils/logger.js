@@ -41,8 +41,4 @@ const logWarning = (label, message, context = null) => {
   }
 };
 
-module.exports = {
-  logError,
-  logInfo,
-  logWarning,
-};
+export { logError, logInfo, logWarning };

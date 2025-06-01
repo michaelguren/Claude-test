@@ -1,13 +1,15 @@
 // domains/users/controller.js
 // HTTP request routing and response handling for users
 
-const {
+import {
   parseBody,
   errorResponse,
   successResponse,
-} = require("./utils-shared/helpers");
-const { logError, logInfo } = require("./utils-shared/logger");
-const service = require("./service");
+} from "infra/domains/_shared/utils/helpers.js";
+
+import { logError, logInfo } from "infra/domains/_shared/utils/logger.js";
+
+import * as service from "./service.js";
 
 const handleRequest = async (event) => {
   try {
@@ -157,6 +159,4 @@ const deleteUser = async (userId) => {
   }
 };
 
-module.exports = {
-  handleRequest,
-};
+export { handleRequest };

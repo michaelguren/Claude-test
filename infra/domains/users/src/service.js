@@ -1,10 +1,16 @@
 // domains/users/service.js
 // Business logic for user management
 
-const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
-const { logError, logInfo } = require("./utils-shared/logger");
-const repository = require("./repository");
-const validation = require("./utils/validation");
+import {
+  generateULID,
+  getCurrentTimestamp,
+} from "infra/domains/_shared/utils/helpers.js";
+
+import { logError, logInfo } from "infra/domains/_shared/utils/logger.js";
+
+import * as repository from "./repository.js";
+
+import * as validation from "./utils/validation.js";
 
 const createUser = async (userData) => {
   try {
@@ -139,7 +145,7 @@ const deleteUser = async (userId) => {
   }
 };
 
-module.exports = {
+export {
   createUser,
   getUserById,
   getUserByEmail,

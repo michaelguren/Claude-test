@@ -1,11 +1,11 @@
 // infra/domains/auth/index.js
 // Main auth Lambda handler with simplified 3-endpoint routing
-const { withCors } = require("./src/utils-shared/cors");
-const {
+import { withCors } from "infra/domains/_shared/utils/cors.js";
+import {
   signupHandler,
   verifyHandler,
   loginHandler,
-} = require("./src/controller");
+} from "./src/controller.js";
 
 const authHandler = async (event) => {
   console.log("Auth event:", JSON.stringify(event, null, 2));
@@ -38,4 +38,4 @@ const authHandler = async (event) => {
 };
 
 // Export the handler wrapped with CORS handling
-exports.handler = withCors(authHandler);
+export const handler = withCors(authHandler);

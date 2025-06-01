@@ -1,83 +1,75 @@
 // infra/domains/auth/src/controller.js
 // Simplified HTTP request routing for authentication - 3 endpoints only
-const {
+
+import {
   parseBody,
   errorResponse,
   successResponse,
-  normalizeEmail,
-} = require("./utils-shared/helpers");
-const { logError } = require("./utils-shared/logger");
-const service = require("./service");
+} from "infra/domains/_shared/utils/helpers.js";
+
+import * as UserService from "infra/domains/users/src/service.js";
+import * as AuthService from "./service.js";
 
 /**
- * POST /auth/signup - Create user account and send verification email
- * Payload: { email, password }
- * Response: { message, email }
+ * POST /auth/signup - Begin signup flow for a new user
+ * Payload: { email }
+ * Behavior: Creates user record (if not exists) and sends verification code
+ * Response: { message }
+ * Errors:
+ *   400 - Missing email
+ *   409 - User already exists
  */
-exports.signupHandler = async (event) => {
-  try {
-    if (event.routeKey !== "POST /auth/signup") {
-      return errorResponse(405, "Method Not Allowed");
-    }
+export async function signupHandler(event) {
+  const body = parseBody(event);
+  const { email } = body;
 
-    const body = parseBody(event.body);
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return errorResponse(400, "Email and password are required");
-    }
-
-    // Create user and send verification code in one operation
-    await service.createUserAndSendVerification(email, password);
-
-    return successResponse(200, {
-      message:
-        "Account created. Please check your email for verification code.",
-      email: normalizeEmail(email),
-    });
-  } catch (err) {
-    console.error("Signup Error:", err);
-
-    if (err.message.includes("already exists")) {
-      return errorResponse(409, err.message);
-    }
-    if (
-      err.message.includes("Invalid email") ||
-      err.message.includes("Password must be") ||
-      err.message.includes("required")
-    ) {
-      return errorResponse(400, err.message);
-    }
-
-    return errorResponse(500, "Internal Server Error");
+  if (!email) {
+    return errorResponse(400, "Missing required field: email");
   }
-};
+
+  const user = await UserService.getUserByEmail(email);
+
+  if (user) {
+    return errorResponse(409, "User already exists");
+  }
+
+  await UserService.createUser({ email });
+  await AuthService.sendVerificationCode({ email });
+
+  return successResponse(200, { message: "Verification code sent" });
+}
 
 /**
- * POST /auth/verify - Verify email with code (enables login)
+ * POST /auth/verify - Verify user with email+code
  * Payload: { email, code }
+ * Behavior: Verifies code, then asks users domain to activate the user
  * Response: { message, user }
+ * Errors:
+ *   400 - Missing or invalid input
+ *   500 - Internal error
  */
-exports.verifyHandler = async (event) => {
+export async function verifyHandler(event) {
   try {
-    if (event.routeKey !== "POST /auth/verify") {
-      return errorResponse(405, "Method Not Allowed");
-    }
-
-    const body = parseBody(event.body);
+    const body = parseBody(event);
     const { email, code } = body;
 
     if (!email || !code) {
       return errorResponse(400, "Email and verification code are required");
     }
 
-    // Verify code and mark user as active
-    const user = await service.verifyUserEmail(email, code);
+    const { user, codeId } = await AuthService.verifyUserCode(email, code);
+
+    if (user.status !== "ACTIVE") {
+      await UserService.activateUser(user.userId);
+      user.status = "ACTIVE";
+    }
+
+    await AuthService.deleteVerificationCode(email, codeId);
 
     return successResponse(200, {
       message: "Email verified successfully. You can now log in.",
       user: {
-        id: user.id,
+        id: user.userId,
         email: user.email,
         name: user.name,
         status: user.status,
@@ -96,14 +88,14 @@ exports.verifyHandler = async (event) => {
 
     return errorResponse(500, "Internal Server Error");
   }
-};
+}
 
 /**
  * POST /auth/login - Login with email/password (verified users only)
  * Payload: { email, password }
  * Response: { token, user }
  */
-exports.loginHandler = async (event) => {
+export async function loginHandler(event) {
   try {
     if (event.routeKey !== "POST /auth/login") {
       return errorResponse(405, "Method Not Allowed");
@@ -116,8 +108,7 @@ exports.loginHandler = async (event) => {
       return errorResponse(400, "Email and password are required");
     }
 
-    // Login user and generate JWT token
-    const result = await service.loginUser(email, password);
+    const result = await AuthService.loginUser(email, password);
 
     return successResponse(200, {
       token: result.token,
@@ -142,4 +133,4 @@ exports.loginHandler = async (event) => {
 
     return errorResponse(500, "Internal Server Error");
   }
-};
+}

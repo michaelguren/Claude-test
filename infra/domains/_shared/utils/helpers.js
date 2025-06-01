@@ -93,7 +93,7 @@ const isNotEmpty = (value) => {
   return value !== null && value !== undefined && value !== "";
 };
 
-module.exports = {
+export {
   generateULID,
   getCurrentTimestamp,
   parseBody,

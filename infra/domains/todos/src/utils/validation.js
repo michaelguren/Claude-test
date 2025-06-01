@@ -1,12 +1,13 @@
 // infra/domains/todos/src/utils/validation.js
 // Validation logic specific to TODO domain
 
-const {
+import {
   isNotEmpty,
   isValidULID,
   sanitizeString,
-} = require("../utils-shared/helpers");
-const constants = require("./constants");
+} from "infra/domains/_shared/helpers.js";
+
+import * as constants from "infra/domains/_shared/utils/constants.js";
 
 const validateCreateTodo = (todoData) => {
   if (!todoData) {
@@ -95,8 +96,4 @@ const validateTodoId = (todoId) => {
   return todoId;
 };
 
-module.exports = {
-  validateCreateTodo,
-  validateUpdateTodo,
-  validateTodoId,
-};
+export { validateCreateTodo, validateUpdateTodo, validateTodoId };

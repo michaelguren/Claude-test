@@ -1,16 +1,18 @@
 // infra/domains/users/src/repository.js
 // Data access layer for user management
 
-const {
+import {
   putItem,
   getItem,
   updateItem,
   deleteItem,
   listItems,
   queryGSI,
-} = require("./utils-shared/dynamodb");
-const { logError, logInfo } = require("./utils-shared/logger");
-const constants = require("./utils/constants");
+} from "infra/domains/_shared/utils/dynamodb.js";
+
+import { logError, logInfo } from "infra/domains/_shared/utils/logger.js";
+
+import * as constants from "infra/domains/_shared/utils/constants.js";
 
 const createUser = async (user) => {
   try {
@@ -169,7 +171,7 @@ const deleteUser = async (userId) => {
   }
 };
 
-module.exports = {
+export {
   createUser,
   getUserById,
   getUserByEmail,

@@ -1,8 +1,8 @@
-const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 
 const ses = new SESClient();
 
-exports.sendEmail = async (email, code) => {
+export async function sendEmail(email, code) {
   const params = {
     Destination: { ToAddresses: [email] },
     Message: {
@@ -17,4 +17,4 @@ exports.sendEmail = async (email, code) => {
   };
 
   await ses.send(new SendEmailCommand(params));
-};
+}

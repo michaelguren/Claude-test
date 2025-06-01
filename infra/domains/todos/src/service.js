@@ -1,11 +1,9 @@
 // infra/domains/todos/src/service.js
 // Business logic for TODO management
 
-const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
-const { logError, logInfo } = require("./utils-shared/logger");
-const repository = require("./repository");
-const validation = require("./utils/validation");
-const constants = require("./utils/constants");
+import { logError } from "infra/domains/_shared/utils/logger.js";
+
+import * as constants from "infra/domains/_shared/utils/constants.js";
 
 const createTodo = async (todoData, userEmail) => {
   try {
@@ -181,7 +179,7 @@ const toggleTodo = async (todoId, userEmail) => {
   }
 };
 
-module.exports = {
+export {
   createTodo,
   getTodoById,
   listTodos,

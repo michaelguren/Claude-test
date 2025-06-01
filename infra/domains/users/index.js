@@ -1,5 +1,5 @@
-const controller = require("./src/controller");
-const { withCors } = require("./src/utils-shared/cors");
+import * as controller from "./src/controller.js";
+import { withCors } from "infra/domains/_shared/utils/cors.js";
 
 const usersHandler = async (event) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
@@ -7,4 +7,4 @@ const usersHandler = async (event) => {
 };
 
 // Export the handler wrapped with CORS handling
-exports.handler = withCors(usersHandler);
+export const handler = withCors(usersHandler);

@@ -1,0 +1,16 @@
+{
+  "name": "minimalist-todo",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "This repository contains a **minimal, reusable scaffolding** for web applications. It is designed to last over a decade with minimal ongoing maintenance, prioritizing simplicity and developer velocity over architectural complexity.",
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.821.0",
+    "@aws-sdk/client-ses": "^3.821.0",
+    "@aws-sdk/client-ssm": "^3.821.0",
+    "@aws-sdk/lib-dynamodb": "^3.821.0",
+    "esbuild": "^0.25.5"
+  },
+  "dependencies": {
+    "ulid": "^3.0.0"
+  }
+}

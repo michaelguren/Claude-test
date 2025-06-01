@@ -1,14 +1,15 @@
 // domains/users/utils/validation.js
 // Validation logic specific to user domain
 
-const {
+import {
   isValidEmail,
   isValidULID,
   sanitizeString,
   isNotEmpty,
   normalizeEmail,
-} = require("../utils-shared/helpers");
-const constants = require("./constants");
+} from "infra/domains/_shared/utils/helpers.js";
+
+import * as constants from "infra/domains/_shared/utils/constants.js";
 
 const validateCreateUser = (userData) => {
   if (!userData || typeof userData !== "object") {
@@ -140,7 +141,7 @@ const validateEmail = (email) => {
   return normalizeEmail(email);
 };
 
-module.exports = {
+export {
   validateCreateUser,
   validateUpdateUser,
   validateUserId,

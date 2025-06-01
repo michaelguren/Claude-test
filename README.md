@@ -229,7 +229,7 @@ All Lambda functions follow a consistent resource-based pattern:
 
 ```javascript
 // domains/auth/index.js - Handles all auth operations
-const { withCors } = require("./src/utils-shared/cors");
+const { withCors } = require("infra/domains/_shared/utils/cors");
 
 const authHandler = async (event) => {
   // Route based on event.routeKey (HTTP API v2.0 format)

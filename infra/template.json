@@ -47,7 +47,9 @@
               "Identity": {
                 "Headers": ["Authorization"]
               },
-              "AuthorizerPayloadFormatVersion": "1.0"
+              "AuthorizerPayloadFormatVersion": "1.0",
+              "EnableSimpleResponses": true,
+              "ResultTtlInSeconds": 300
             }
           }
         },
@@ -171,7 +173,7 @@
       "Type": "AWS::Serverless::Function",
       "Description": "Handles all user management operations",
       "Properties": {
-        "CodeUri": "domains/users/",
+        "CodeUri": "dist/users/",
         "Handler": "index.handler",
         "Policies": [
           {
@@ -244,7 +246,7 @@
       "Type": "AWS::Serverless::Function",
       "Description": "Handles authentication operations (signup, verify, login)",
       "Properties": {
-        "CodeUri": "domains/auth/",
+        "CodeUri": "dist/auth/",
         "Handler": "index.handler",
         "Environment": {
           "Variables": {
@@ -326,7 +328,7 @@
       "Type": "AWS::Serverless::Function",
       "Description": "Handles all TODO operations for authenticated users",
       "Properties": {
-        "CodeUri": "domains/todos/",
+        "CodeUri": "dist/todos/",
         "Handler": "index.handler",
         "Policies": [
           {

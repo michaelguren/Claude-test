@@ -1,8 +1,7 @@
 // infra/domains/auth/src/authorizer.js
 // Lambda authorizer for validating custom JWT tokens
-
-const crypto = require("crypto");
-const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
+import crypto from "crypto";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 
 const ssmClient = new SSMClient({});
 let cachedJwtSecret = null;

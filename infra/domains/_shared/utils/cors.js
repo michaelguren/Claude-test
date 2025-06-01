@@ -1,4 +1,3 @@
-// infra/domains/utils-shared/cors.js
 // Shared CORS handling for all Lambda functions
 
 const corsHeaders = {
@@ -66,10 +65,4 @@ const withCors = (handlerFunction) => {
   };
 };
 
-module.exports = {
-  corsHeaders,
-  addCorsHeaders,
-  handleOptions,
-  isOptionsRequest,
-  withCors,
-};
+export { addCorsHeaders, handleOptions, isOptionsRequest, withCors };

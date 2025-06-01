@@ -1,15 +1,17 @@
 // infra/domains/todos/src/repository.js
 // Data access layer for TODO management
 
-const {
+import {
   putItem,
   getItem,
   updateItem,
   deleteItem,
   listItems,
-} = require("./utils-shared/dynamodb");
-const { logError } = require("./utils-shared/logger");
-const constants = require("./utils/constants");
+} from "infra/domains/_shared/utils/dynamodb.js";
+
+import { logError } from "infra/domains/_shared/utils/logger.js";
+
+import * as constants from "infra/domains/_shared/utils/constants.js";
 
 const createTodo = async (todo) => {
   try {
@@ -135,7 +137,7 @@ const deleteTodo = async (todoId, userEmail) => {
   }
 };
 
-module.exports = {
+export {
   createTodo,
   getTodoById,
   listTodosByUserEmail,

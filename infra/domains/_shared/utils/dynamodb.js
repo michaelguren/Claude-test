@@ -165,11 +165,4 @@ const queryGSI = async (
   }
 };
 
-module.exports = {
-  putItem,
-  getItem,
-  updateItem,
-  deleteItem,
-  listItems,
-  queryGSI,
-};
+export { putItem, getItem, updateItem, deleteItem, listItems, queryGSI };

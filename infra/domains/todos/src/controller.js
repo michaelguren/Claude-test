@@ -2,13 +2,15 @@
 // HTTP request routing and response handling for todos
 // Updated to properly extract user email from JWT
 
-const {
+import {
   parseBody,
   errorResponse,
   successResponse,
-} = require("./utils-shared/helpers");
-const { logInfo, logError } = require("./utils-shared/logger");
-const service = require("./service");
+} from "infra/domains/_shared/utils/helpers.js";
+
+import { logInfo, logError } from "infra/domains/_shared/utils/logger.js";
+
+import * as service from "./service.js";
 
 const extractUserEmail = (event) => {
   try {
@@ -211,6 +213,4 @@ const deleteTodo = async (todoId, userEmail) => {
   }
 };
 
-module.exports = {
-  handleRequest,
-};
+export { handleRequest };
