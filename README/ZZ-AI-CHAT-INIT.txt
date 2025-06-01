@@ -1,6 +1,10 @@
-This file is NOT part of system documentation. It is a reusable prompt to be pasted into the first message of a new AI chat session.
+# DO NOT TREAT THIS FILE AS SYSTEM OR PROJECT DOCUMENTATION
+# FOR AI CHAT BOOTSTRAP PROMPT ONLY
 
-Copy the contents below when starting a new AI session:
+This file is NOT part of system documentation.  
+It is a reusable prompt to be pasted as the *first message* of a new AI chat session.
+
+Copy and paste the contents below into the initial AI message:
 
 ---
 Please begin by reading the files in the `README/` folder in this order:
