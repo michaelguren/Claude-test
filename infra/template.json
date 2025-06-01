@@ -247,7 +247,7 @@
       "Description": "Handles authentication operations (signup, verify, login)",
       "Properties": {
         "CodeUri": "dist/auth/",
-        "Handler": "index.handler",
+        "Handler": "handler.handler",
         "Environment": {
           "Variables": {
             "SOURCE_EMAIL": "noreply@danike.com",

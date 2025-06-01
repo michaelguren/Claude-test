@@ -1,15 +1,15 @@
 // domains/users/utils/dynamodb.js
 // DynamoDB client and utility functions
 
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const {
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
   DynamoDBDocumentClient,
   PutCommand,
   GetCommand,
   UpdateCommand,
   DeleteCommand,
   QueryCommand,
-} = require("@aws-sdk/lib-dynamodb");
+} from "@aws-sdk/lib-dynamodb";
 
 // Create DynamoDB client
 const client = new DynamoDBClient({
