@@ -155,7 +155,7 @@ const verifyUserEmail = async (email, code) => {
 
     // Mark user as verified if not already
     if (user.status !== constants.USER_STATUS_ACTIVE) {
-      await repository.markUserVerified(user.id);
+      await repository.markUserVerified(email);
       user.status = constants.USER_STATUS_ACTIVE;
       user.updatedAt = getCurrentTimestamp();
     }

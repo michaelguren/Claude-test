@@ -67,6 +67,12 @@ const isValidEmail = (email) => {
   return emailRegex.test(email);
 };
 
+// Normalize email to consistent format (lowercase, trimmed)
+const normalizeEmail = (email) => {
+  if (!email) return email;
+  return normalizeEmail(email);
+};
+
 // Validate ULID format
 const isValidULID = (id) => {
   // ULID is 26 characters, Crockford's Base32
@@ -94,6 +100,7 @@ module.exports = {
   errorResponse,
   successResponse,
   isValidEmail,
+  normalizeEmail,
   isValidULID,
   sanitizeString,
   isNotEmpty,

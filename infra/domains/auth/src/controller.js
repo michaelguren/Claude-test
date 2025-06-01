@@ -4,6 +4,7 @@ const {
   parseBody,
   errorResponse,
   successResponse,
+  normalizeEmail,
 } = require("./utils-shared/helpers");
 const { logError } = require("./utils-shared/logger");
 const service = require("./service");
@@ -32,7 +33,7 @@ exports.signupHandler = async (event) => {
     return successResponse(200, {
       message:
         "Account created. Please check your email for verification code.",
-      email: email.toLowerCase().trim(),
+      email: normalizeEmail(email),
     });
   } catch (err) {
     console.error("Signup Error:", err);

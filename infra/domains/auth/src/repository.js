@@ -1,6 +1,10 @@
 // infra/domains/auth/src/repository.js
 // Simplified data access layer using email-based PK for guaranteed uniqueness
-const { generateULID, getCurrentTimestamp } = require("./utils-shared/helpers");
+const {
+  generateULID,
+  getCurrentTimestamp,
+  normalizeEmail,
+} = require("./utils-shared/helpers");
 const { logInfo, logError } = require("./utils-shared/logger");
 const {
   putItem,
@@ -20,11 +24,11 @@ exports.putVerificationCode = async (email, codeId, code, ttlSeconds) => {
   try {
     const now = getCurrentTimestamp();
     const item = {
-      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
+      PK: `${constants.USER_PREFIX}${normalizeEmail(email)}`,
       SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
       code,
       codeId,
-      email: email.toLowerCase().trim(),
+      email: normalizeEmail(email),
       createdAt: now,
       TTL: ttlSeconds, // DynamoDB TTL attribute
     };
@@ -48,7 +52,7 @@ exports.getVerificationCode = async (email, code) => {
   try {
     // Query for verification codes for this email
     const result = await listItems(
-      `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
+      `${constants.USER_PREFIX}${normalizeEmail(email)}`,
       constants.VERIFICATION_CODE_PREFIX.slice(0, -1), // Remove trailing #
       {
         scanIndexForward: false, // Most recent first
@@ -84,8 +88,10 @@ exports.deleteVerificationCode = async (email, codeId) => {
     }
 
     const params = {
-      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
-      SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
+      Key: {
+        PK: `${constants.USER_PREFIX}${normalizeEmail(email)}`,
+        SK: `${constants.VERIFICATION_CODE_PREFIX}${codeId}`,
+      },
     };
 
     await deleteItem(params);
@@ -106,7 +112,7 @@ exports.deleteVerificationCode = async (email, codeId) => {
 exports.getUserByEmail = async (email) => {
   try {
     const key = {
-      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
+      PK: `${constants.USER_PREFIX}${normalizeEmail(email)}`,
       SK: constants.USER_PROFILE_SK,
     };
 
@@ -153,7 +159,7 @@ exports.getUserById = async (userId) => {
 exports.createPendingUser = async (email, passwordData) => {
   try {
     const userId = generateULID();
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(email);
     const now = getCurrentTimestamp();
 
     const item = {
@@ -206,8 +212,10 @@ exports.createPendingUser = async (email, passwordData) => {
 exports.markUserVerified = async (email) => {
   try {
     const params = {
-      PK: `${constants.USER_PREFIX}${email.toLowerCase().trim()}`,
-      SK: constants.USER_PROFILE_SK,
+      Key: {
+        PK: `${constants.USER_PREFIX}${normalizeEmail(email)}`,
+        SK: constants.USER_PROFILE_SK,
+      },
       UpdateExpression: "SET #status = :status, #updatedAt = :now",
       ExpressionAttributeNames: {
         "#status": "status",

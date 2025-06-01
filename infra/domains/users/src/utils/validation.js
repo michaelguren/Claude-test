@@ -6,6 +6,7 @@ const {
   isValidULID,
   sanitizeString,
   isNotEmpty,
+  normalizeEmail,
 } = require("../utils-shared/helpers");
 const constants = require("./constants");
 
@@ -47,7 +48,7 @@ const validateCreateUser = (userData) => {
 
   // Return sanitized data
   return {
-    email: userData.email.toLowerCase().trim(),
+    email: userData.normalizeEmail(email),
     name: sanitizedName,
     role: userData.role || constants.DEFAULT_ROLE,
   };
@@ -68,7 +69,7 @@ const validateUpdateUser = (userData) => {
     if (!isValidEmail(userData.email)) {
       throw new Error("Invalid email format");
     }
-    updates.email = userData.email.toLowerCase().trim();
+    updates.email = userData.normalizeEmail(email);
   }
 
   // Validate name if provided
@@ -136,7 +137,7 @@ const validateEmail = (email) => {
     throw new Error("Invalid email format");
   }
 
-  return email.toLowerCase().trim();
+  return normalizeEmail(email);
 };
 
 module.exports = {
