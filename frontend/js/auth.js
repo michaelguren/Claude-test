@@ -41,35 +41,13 @@ function initAuth() {
   return false;
 }
 
-// Send verification code to email
-async function sendVerificationCode(email) {
-  const response = await fetch(
-    `${window.APP_CONFIG.apiBaseUrl}/auth/send-code`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to send verification code");
-  }
-
-  return response.json();
-}
-
-// Register new user
+// Register new user (sends verification code)
 async function register(email, password) {
-  const response = await fetch(
-    `${window.APP_CONFIG.apiBaseUrl}/auth/register`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }
-  );
+  const response = await fetch(`${window.APP_CONFIG.apiBaseUrl}/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -82,11 +60,11 @@ async function register(email, password) {
 // Complete registration with verification code
 async function completeRegistration(email, code) {
   const response = await fetch(
-    `${window.APP_CONFIG.apiBaseUrl}/auth/complete-registration`,
+    `${window.APP_CONFIG.apiBaseUrl}/auth/verify-signup`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email, code, password }), // make sure password is passed
     }
   );
 
@@ -161,13 +139,6 @@ function getUserId() {
   return user ? user.id : null;
 }
 
-// Trigger sign in flow (will be used by UI buttons)
-function signIn() {
-  // This will be handled by the UI forms
-  // For now, just log that sign in was requested
-  console.log("Sign in requested - UI should show login form");
-}
-
 // Not used in email/password flow, but keeping for compatibility
 function handleCallback() {
   return false;
@@ -176,11 +147,9 @@ function handleCallback() {
 // Export public API
 window.Auth = {
   init: initAuth,
-  sendVerificationCode,
   register,
   completeRegistration,
   login,
-  signIn,
   signOut,
   isAuthenticated,
   getAccessToken,

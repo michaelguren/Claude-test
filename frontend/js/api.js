@@ -1,22 +1,14 @@
 /**
  * API client for TODO application
  * Uses real authentication with JWT tokens
- * TODOs are still mocked until we build the backend
  */
-
-// API client module
-const Api = {
-  baseUrl: null,
-  useMockTodos: true, // Will be true until we build TODO backend
-};
+const Api = {};
 
 // Initialize API client
 function init(config) {
-  Api.baseUrl = config.apiBaseUrl;
-  Api.useMockTodos = true; // Keep TODOs mocked for now
+  Api.baseUrl = "https://nfwfkybvol.execute-api.us-east-1.amazonaws.com";
 
   console.log("API initialized with base URL:", Api.baseUrl);
-  console.log("Using real auth, mock TODOs");
 }
 
 // Generic fetch wrapper with auth token
@@ -70,15 +62,8 @@ async function fetchWithAuth(url, options = {}) {
 
 // Get all TODOs for the current user
 async function getTodos() {
-  if (Api.useMockTodos) {
-    return window.MockApi.getTodos();
-  }
-
-  // When we build the real TODO backend, this will be:
-  // const url = `${Api.baseUrl}/todos`;
-  // return await fetchWithAuth(url);
-
-  throw new Error("Real TODO backend not implemented yet");
+  const url = `${Api.baseUrl}/todos`;
+  return await fetchWithAuth(url);
 }
 
 // Create a new TODO
@@ -87,18 +72,11 @@ async function createTodo(text) {
     throw new Error("TODO text cannot be empty");
   }
 
-  if (Api.useMockTodos) {
-    return window.MockApi.createTodo(text);
-  }
-
-  // When we build the real TODO backend, this will be:
-  // const url = `${Api.baseUrl}/todos`;
-  // return await fetchWithAuth(url, {
-  //   method: 'POST',
-  //   body: JSON.stringify({ text })
-  // });
-
-  throw new Error("Real TODO backend not implemented yet");
+  const url = `${Api.baseUrl}/todos`;
+  return await fetchWithAuth(url, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
 }
 
 // Update a TODO
@@ -107,18 +85,11 @@ async function updateTodo(todoId, updates) {
     throw new Error("TODO ID is required");
   }
 
-  if (Api.useMockTodos) {
-    return window.MockApi.updateTodo(todoId, updates);
-  }
-
-  // When we build the real TODO backend, this will be:
-  // const url = `${Api.baseUrl}/todos/${todoId}`;
-  // return await fetchWithAuth(url, {
-  //   method: 'PUT',
-  //   body: JSON.stringify(updates)
-  // });
-
-  throw new Error("Real TODO backend not implemented yet");
+  const url = `${Api.baseUrl}/todos/${todoId}`;
+  return await fetchWithAuth(url, {
+    method: "PUT",
+    body: JSON.stringify(updates),
+  });
 }
 
 // Delete a TODO
@@ -127,17 +98,10 @@ async function deleteTodo(todoId) {
     throw new Error("TODO ID is required");
   }
 
-  if (Api.useMockTodos) {
-    return window.MockApi.deleteTodo(todoId);
-  }
-
-  // When we build the real TODO backend, this will be:
-  // const url = `${Api.baseUrl}/todos/${todoId}`;
-  // await fetchWithAuth(url, {
-  //   method: 'DELETE'
-  // });
-
-  throw new Error("Real TODO backend not implemented yet");
+  const url = `${Api.baseUrl}/todos/${todoId}`;
+  await fetchWithAuth(url, {
+    method: "DELETE",
+  });
 }
 
 // Toggle completed status of a TODO
@@ -146,20 +110,12 @@ async function toggleTodo(todoId) {
     throw new Error("TODO ID is required");
   }
 
-  if (Api.useMockTodos) {
-    return window.MockApi.toggleTodo(todoId);
+  const todos = await getTodos();
+  const todo = todos.find((t) => t.todoId === todoId);
+  if (!todo) {
+    throw new Error(`TODO with ID ${todoId} not found`);
   }
-
-  // When we build the real TODO backend, this will be:
-  // Get the current TODO first, then update
-  // const todos = await getTodos();
-  // const todo = todos.find(t => t.todoId === todoId);
-  // if (!todo) {
-  //   throw new Error(`TODO with ID ${todoId} not found`);
-  // }
-  // return updateTodo(todoId, { completed: !todo.completed });
-
-  throw new Error("Real TODO backend not implemented yet");
+  return updateTodo(todoId, { completed: !todo.completed });
 }
 
 // Public API

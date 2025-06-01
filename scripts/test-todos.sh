@@ -8,7 +8,7 @@ set -euo pipefail
 STACK_NAME="minimalist-todo-20250528"
 AWS_REGION="us-east-1" 
 AWS_PROFILE="dev"
-TEST_USER_ID="01JWKQB7D1Q1P2GF8EA6PSK60F"  # Using mguren@mac.com user
+TEST_USER_ID="01JWM5C890HQFDJHWREWNQJ1S6"  # Using mguren@mac.com user
 
 echo "🧪 Testing TODO API Flow"
 echo "========================"

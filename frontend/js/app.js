@@ -1,252 +1,159 @@
-/**
- * Minimalist TODO App - Main Application Logic
- * HTML5 and CSS-first approach with minimal JavaScript
- * Updated to call correct backend auth endpoints
- */
+// app.js - Minimalist TODO App Core Logic (Auth + Todos)
 
-// Configuration - update these URLs to match your deployment
-const CONFIG = {
-  apiBaseUrl:
-    window.location.hostname === "localhost"
-      ? "https://nfwfkybvol.execute-api.us-east-1.amazonaws.com"
-      : "https://nfwfkybvol.execute-api.us-east-1.amazonaws.com",
-  useMockAuth: window.location.hostname === "localhost",
+// Global config
+window.APP_CONFIG = {
+  apiBaseUrl: "https://nfwfkybvol.execute-api.us-east-1.amazonaws.com",
 };
 
-// Simple state management
+// State
 const state = {
   user: null,
   todos: [],
-  filter: "all", // all, active, completed
+  filter: "all",
 };
 
-// Utility functions for cleaner code
-function $(id) {
-  return document.getElementById(id);
-}
+// DOM helpers
+const $ = (id) => document.getElementById(id);
+const show = (el) => el.classList.remove("hidden");
+const hide = (el) => el.classList.add("hidden");
+const showError = (el, msg) => {
+  el.textContent = msg;
+  el.classList.remove("hidden");
+};
+const hideError = (el) => el.classList.add("hidden");
 
-function show(element) {
-  element.classList.remove("hidden");
-}
-
-function hide(element) {
-  element.classList.add("hidden");
-}
-
-function showError(element, message) {
-  element.textContent = message;
-  element.classList.remove("hidden");
-}
-
-function hideError(element) {
-  element.classList.add("hidden");
-}
-
-// Auth step management using CSS classes
-function showAuthStep(step) {
-  // Hide all auth steps
-  document.querySelectorAll(".auth-step").forEach((el) => {
-    el.classList.remove("active");
-  });
-
-  // Show the requested step
-  $(step + "-step").classList.add("active");
-
-  // Clear any error messages
-  document.querySelectorAll(".error").forEach((el) => hideError(el));
-
-  // Focus appropriate input
-  setTimeout(() => {
-    if (step === "login") $("login-email").focus();
-    if (step === "register") $("register-email").focus();
-    if (step === "verification") $("verification-code").focus();
-  }, 100);
-}
-
-// Form validation using HTML5 + minimal JS
-function validateForm(form) {
-  const formData = new FormData(form);
-  const data = Object.fromEntries(formData);
-
-  // Let HTML5 handle basic validation
-  if (!form.checkValidity()) {
-    form.reportValidity();
-    return false;
-  }
-
-  // Custom validation for password confirmation
-  if (data.password && data.passwordConfirm) {
-    if (data.password !== data.passwordConfirm) {
-      showError($("register-error"), "Passwords do not match");
-      return false;
-    }
-  }
-
-  return data;
-}
-
-// API calls with proper error handling
 async function apiCall(endpoint, options = {}) {
-  const url = CONFIG.apiBaseUrl + endpoint;
+  const url = window.APP_CONFIG.apiBaseUrl + endpoint;
   const config = {
     headers: {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers || {}),
     },
     ...options,
   };
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    const contentType = response.headers.get("content-type");
+    const isJson = contentType && contentType.includes("application/json");
+    const body = isJson ? await response.json() : {};
 
     if (!response.ok) {
-      throw new Error(data.error || `HTTP ${response.status}`);
+      throw new Error(body.error || `HTTP ${response.status}`);
     }
 
-    return data;
-  } catch (error) {
-    console.error("API Error:", error);
-    throw error;
+    return body;
+  } catch (err) {
+    console.error("API call failed:", err);
+    throw err;
   }
 }
-// Update the auth functions in frontend/js/app.js:
 
-// Start registration process - sends verification email
+// Auth flow helpers
+function showAuthStep(step) {
+  document
+    .querySelectorAll(".auth-step")
+    .forEach((el) => el.classList.remove("active"));
+  $(`${step}-step`).classList.add("active");
+  document.querySelectorAll(".error").forEach(hideError);
+  setTimeout(() => {
+    $(`${step}-email`)?.focus();
+    if (step === "verification") $("verification-code")?.focus();
+  }, 100);
+}
+
+function validateForm(form) {
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData);
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return false;
+  }
+  if (
+    data.password &&
+    data.passwordConfirm &&
+    data.password !== data.passwordConfirm
+  ) {
+    showError($("register-error"), "Passwords do not match");
+    return false;
+  }
+  return data;
+}
+
+// Auth logic
 async function register(email, password) {
-  try {
-    // Step 1: Send verification code
-    await apiCall("/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-
-    // Store password temporarily for step 2
-    state.pendingRegistration = { email, password };
-
-    // Success - show verification step
-    showAuthStep("verification");
-    $("verification-email").textContent = email;
-  } catch (error) {
-    throw error;
-  }
-}
-
-// Complete registration with verification code
-async function verifyEmail(email, code) {
-  try {
-    const { password } = state.pendingRegistration || {};
-    if (!password) {
-      throw new Error("Registration session expired. Please start over.");
-    }
-
-    // Step 2: Verify code and create user
-    const result = await apiCall("/auth/verify-signup", {
-      method: "POST",
-      body: JSON.stringify({ email, code, password }),
-    });
-
-    // Clear pending registration
-    state.pendingRegistration = null;
-
-    // Store auth data and show app
-    localStorage.setItem("auth", JSON.stringify(result));
-    state.user = result.user;
-    showApp();
-  } catch (error) {
-    throw error;
-  }
-}
-
-// Login remains the same
-async function login(email, password) {
-  const result = await apiCall("/auth/login", {
+  await apiCall("/auth/signup", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email }),
   });
 
-  localStorage.setItem("auth", JSON.stringify(result));
+  state.pendingRegistration = { email, password };
+  $("verification-email").textContent = email;
+  showAuthStep("verification");
+}
+
+async function verifyEmail(email, code) {
+  const { password } = state.pendingRegistration || {};
+  if (!password)
+    throw new Error("Registration session expired. Please start over.");
+  await window.Auth.completeRegistration(email, code);
+  const result = await window.Auth.login(email, password);
   state.user = result.user;
   showApp();
 }
 
-// Resend verification code
-async function resendCode() {
-  const email = $("verification-email").textContent;
-  if (!email) return;
-
-  try {
-    await apiCall("/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-    // Show success message
-  } catch (error) {
-    console.error("Error resending code:", error);
-  }
+async function login(email, password) {
+  const result = await window.Auth.login(email, password);
+  state.user = result.user;
+  showApp();
 }
 
 function signOut() {
-  localStorage.removeItem("token"); // Or whatever key you're using
-  location.reload(); // or redirect to login page
+  window.Auth.signOut();
+  location.reload();
 }
 
-// App management
-function showAuth() {
-  hide($("app-section"));
-  show($("auth-section"));
-  showAuthStep("login"); // Default to login form
-}
-
+// App flow
 function showApp() {
   hide($("auth-section"));
   show($("app-section"));
-
-  if (state.user && state.user.email) {
-    $("user-info").textContent = `Welcome, ${state.user.email}!`;
-  }
-
+  $("user-info").textContent = `Welcome, ${state.user?.email || "User"}!`;
   loadTodos();
 }
 
-// Todo management
-async function loadTodos() {
-  try {
-    // When real TODO backend is implemented:
-    // const todos = await apiCall('/todos');
-    // state.todos = todos;
-
-    // For now, start with empty state
-    state.todos = [];
-    renderTodos();
-  } catch (error) {
-    console.error("Error loading todos:", error);
-  }
+function showAuth() {
+  hide($("app-section"));
+  show($("auth-section"));
+  showAuthStep("login");
 }
 
 function renderTodos() {
   const list = $("todo-list");
-  const filtered = state.todos.filter((todo) => {
-    if (state.filter === "active") return !todo.completed;
-    if (state.filter === "completed") return todo.completed;
-    return true; // all
-  });
+  const filtered = state.todos.filter((todo) =>
+    state.filter === "active"
+      ? !todo.completed
+      : state.filter === "completed"
+      ? todo.completed
+      : true
+  );
 
   list.innerHTML = filtered.length
     ? filtered
         .map(
           (todo) => `
-    <li class="todo-item ${todo.completed ? "completed" : ""}">
-      <input type="checkbox" class="todo-checkbox" 
-             ${todo.completed ? "checked" : ""} 
-             onchange="toggleTodo(${todo.id})">
-      <span class="todo-text">${escapeHtml(todo.text)}</span>
-      <button class="delete-btn" onclick="deleteTodo(${todo.id})">×</button>
-    </li>
-  `
+        <li class="todo-item ${todo.completed ? "completed" : ""}">
+          <input type="checkbox" class="todo-checkbox"
+                 ${todo.completed ? "checked" : ""}
+                 onchange="toggleTodo('${todo.todoId}')">
+          <span class="todo-text">${escapeHtml(todo.text)}</span>
+          <button class="delete-btn" onclick="deleteTodo('${
+            todo.todoId
+          }')">×</button>
+        </li>
+      `
         )
         .join("")
-    : '<li class="todo-item" style="text-align: center; opacity: 0.6">No todos found</li>';
+    : `<li class="todo-item" style="text-align: center; opacity: 0.6">No todos found</li>`;
 }
 
 function escapeHtml(text) {
@@ -255,120 +162,124 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// TODO actions
+async function loadTodos() {
+  try {
+    $("todo-list").innerHTML = "";
+    show($("loading-spinner"));
+    const todos = await window.Api.getTodos();
+    state.todos = todos;
+    renderTodos();
+  } catch (error) {
+    console.error("Error loading todos:", error);
+    alert("Failed to load todos: " + error.message);
+  } finally {
+    hide($("loading-spinner"));
+  }
+}
+
 async function addTodo(text) {
   try {
-    // When real TODO backend is implemented:
-    // const newTodo = await apiCall('/todos', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ text: text.trim() })
-    // });
-    // state.todos.push(newTodo);
-    // renderTodos();
-
-    console.log("TODO backend not yet implemented");
-  } catch (error) {
-    console.error("Error adding todo:", error);
-    alert("Failed to add todo: " + error.message);
-  }
-}
-
-function toggleTodo(id) {
-  const todo = state.todos.find((t) => t.id === id);
-  if (todo) {
-    todo.completed = !todo.completed;
+    const newTodo = await window.Api.createTodo(text);
+    state.todos.push(newTodo);
     renderTodos();
+  } catch (err) {
+    console.error("Add error:", err);
+    alert("Could not add TODO");
   }
-
-  // When real backend is implemented:
-  // apiCall(`/todos/${id}`, {
-  //   method: 'PUT',
-  //   body: JSON.stringify({ completed: todo.completed })
-  // }).catch(error => {
-  //   console.error('Error updating todo:', error);
-  //   todo.completed = !todo.completed; // Revert on error
-  //   renderTodos();
-  // });
 }
 
-function deleteTodo(id) {
-  const todoIndex = state.todos.findIndex((t) => t.id === id);
-  if (todoIndex !== -1) {
-    const todo = state.todos[todoIndex];
-    state.todos.splice(todoIndex, 1);
-    renderTodos();
-  }
-
-  // apiCall(`/todos/${id}`, { method: 'DELETE' })
-  //   .catch(error => {
-  //     console.error('Error deleting todo:', error);
-  //     // Restore todo on error
-  //     state.todos.splice(todoIndex, 0, todo);
-  //     renderTodos();
-  //   });
-}
-
-// Application initialization
-function initializeApp() {
-  console.log("Config:", CONFIG);
-
-  // Check for existing authentication
+async function toggleTodo(todoId) {
   try {
-    const stored = localStorage.getItem("auth");
-    if (stored) {
-      const authData = JSON.parse(stored);
-      // Basic token expiry check (if your tokens include expiry)
-      if (authData.email && authData.token) {
-        state.user = authData;
-        showApp();
-        return;
-      }
-    }
-  } catch (error) {
-    console.error("Error loading stored auth:", error);
+    const todo = state.todos.find((t) => t.todoId === todoId);
+    if (!todo) return;
+    const updated = await window.Api.updateTodo(todoId, {
+      completed: !todo.completed,
+    });
+    todo.completed = updated.completed;
+    renderTodos();
+  } catch (err) {
+    console.error("Toggle error:", err);
   }
-
-  // Default to showing auth
-  showAuth();
 }
 
-// Event listeners using modern approaches
+async function deleteTodo(todoId) {
+  const idx = state.todos.findIndex((t) => t.todoId === todoId);
+  if (idx === -1) return;
+  const todo = state.todos[idx];
+  try {
+    await window.Api.deleteTodo(todoId);
+    state.todos.splice(idx, 1);
+    renderTodos();
+  } catch (err) {
+    console.error("Delete error:", err);
+    state.todos.splice(idx, 0, todo); // restore if failed
+    renderTodos();
+  }
+}
+
+// App startup
+function initializeApp() {
+  window.Api.init(); // <--- This was likely missing
+  console.log("Config:", window.APP_CONFIG);
+
+  const restored = window.Auth.init();
+  if (restored && window.Auth.isAuthenticated()) {
+    state.user = window.Auth.getCurrentUser();
+    showApp();
+  } else {
+    showAuth();
+  }
+}
+
+// Bind events
 document.addEventListener("DOMContentLoaded", () => {
   initializeApp();
 
-  // Form submissions using HTML5 events
   $("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const data = validateForm(e.target);
     if (!data) return;
 
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.classList.add("loading");
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+
+    btn.disabled = true;
+    btn.textContent = "Signing in...";
+    form.classList.add("disabled");
     hideError($("login-error"));
 
     try {
       await login(data.email, data.password);
     } catch (error) {
       showError($("login-error"), error.message);
+      btn.disabled = false;
+      btn.textContent = "Sign In";
     } finally {
-      btn.classList.remove("loading");
+      form.classList.remove("disabled");
     }
   });
 
   $("register-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const data = validateForm(e.target);
+    const form = e.target;
+    const data = validateForm(form);
     if (!data) return;
 
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.classList.add("loading");
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = "...Creating...";
+    form.classList.add("disabled");
     hideError($("register-error"));
 
     try {
       await register(data.email, data.password);
-    } catch (error) {
-      showError($("register-error"), error.message);
+    } catch (err) {
+      showError($("register-error"), err.message);
+      btn.disabled = false;
+      btn.textContent = "Create Account";
     } finally {
-      btn.classList.remove("loading");
+      form.classList.remove("disabled");
     }
   });
 
@@ -376,59 +287,46 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const data = validateForm(e.target);
     if (!data) return;
-
-    const email = $("verification-email").textContent;
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.classList.add("loading");
-    hideError($("verification-error"));
-
     try {
-      await verifyEmail(email, data.code);
-    } catch (error) {
-      showError($("verification-error"), error.message);
-    } finally {
-      btn.classList.remove("loading");
+      await verifyEmail($("verification-email").textContent, data.code);
+    } catch (err) {
+      showError($("verification-error"), err.message);
     }
   });
 
   $("todo-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = $("todo-input");
-    const text = input.value.trim();
-    if (!text) return;
-
-    await addTodo(text);
+    if (!input.value.trim()) return;
+    await addTodo(input.value.trim());
     input.value = "";
   });
 
   $("sign-out-button").addEventListener("click", signOut);
 
-  // Filter buttons using event delegation
   document.addEventListener("click", (e) => {
     if (e.target.classList.contains("filter-btn")) {
-      // Update active filter button
-      document.querySelectorAll(".filter-btn").forEach((btn) => {
-        btn.classList.remove("active");
-      });
+      document
+        .querySelectorAll(".filter-btn")
+        .forEach((btn) => btn.classList.remove("active"));
       e.target.classList.add("active");
-
-      // Update filter state
       state.filter = e.target.dataset.filter;
       renderTodos();
     }
   });
 
-  // Handle Enter key in verification code input for better UX
   $("verification-code").addEventListener("input", (e) => {
-    // Auto-submit when 6 digits are entered
     if (e.target.value.length === 6 && /^\d{6}$/.test(e.target.value)) {
       $("verification-form").dispatchEvent(new Event("submit"));
     }
   });
 });
 
-// Make functions globally available for onclick handlers
+// Export global access
 window.showAuthStep = showAuthStep;
-window.resendCode = resendCode;
+window.resendCode = async () => {
+  const email = $("verification-email").textContent;
+  if (email) await window.Auth.sendVerificationCode(email);
+};
 window.toggleTodo = toggleTodo;
 window.deleteTodo = deleteTodo;
