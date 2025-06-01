@@ -62,6 +62,14 @@ delete-frontend:
 	  aws s3 rm s3://$$FRONTEND_BUCKET_NAME --recursive $(AWS_CLI_FLAGS); \
 	fi
 
+repomix:
+	@echo "Making repomix file"
+	repomix . \
+		--style plain \
+		--compress \
+		--output-show-line-numbers \
+		--header-text "Forget all previous project files. Only use the zip file I'm uploading now as the sole source of truth." \
+		-o ~/Desktop/repomix-output-minimalist-todo.txt
 # Help
 help:
 	@echo "Common Makefile targets:"
