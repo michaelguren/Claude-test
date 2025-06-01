@@ -1,0 +1,338 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+The content has been processed where line numbers have been added, content has been compressed (code blocks are separated by ⋮---- delimiter), security check has been disabled.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Line numbers have been added to the beginning of each line
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+- Security check has been disabled - content may contain sensitive information
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+
+================================================================
+Directory Structure
+================================================================
+README.md/
+  README.md
+statemachine/
+  analytics.asl.json/
+    analytics.asl.json
+  stackoverflow.asl.json/
+    stackoverflow.asl.json
+  twitch.asl.json/
+    twitch.asl.json
+template.yaml/
+  template.yaml
+
+================================================================
+Files
+================================================================
+
+================
+File: README.md/README.md
+================
+<!-- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: MIT-0
+//
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so.
+//
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
+
+# AWS Step Functions
+
+In this session, viewers learn how to use AWS SAM to create and deploy AWS Step Functions workflows in their serverless applications. A basic overview of Step Functions is provided. Standard Workflows and Express Workflows are introduced and compared. Nested workflows are introduced for composing complex state machines from basic building blocks. A sample state machine is built using AWS SAM and the AWS Toolkit for Visual Studio Code. Finally, we review what the viewer has learned and conclude the livestream.
+
+================
+File: statemachine/analytics.asl.json/analytics.asl.json
+================
+{
+    "Comment": "A state machine that gathers devrel analytics.",
+    "StartAt": "Launch nested workflows",
+    "States": {
+        "Launch nested workflows": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "Gather Stack Overflow analytics",
+                    "States": {
+                        "Gather Stack Overflow analytics": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                            "Parameters": {
+                                "StateMachineArn": "${StackOverflowWorkflowArn}"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Gather Twitch analytics",
+                    "States": {
+                        "Gather Twitch analytics": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+                            "Parameters": {
+                                "StateMachineArn": "${TwitchWorkflowArn}"
+                            },
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "Next": "Send update notification"
+        },
+        "Send update notification": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sns:publish",
+            "Parameters": {
+                "TopicArn": "${SNSTopicArn}",
+                "Message": {
+                    "Input": "Successfully updated analytics!"
+                }
+            },
+            "End": true
+        }
+    }
+}
+
+================
+File: statemachine/stackoverflow.asl.json/stackoverflow.asl.json
+================
+{
+    "Comment": "A Hello World example demonstrating various state types of the Amazon States Language",
+    "StartAt": "Pass",
+    "States": {
+        "Pass": {
+            "Comment": "A Pass state passes its input to its output, without performing work. Pass states are useful when constructing and debugging state machines.",
+            "Type": "Pass",
+            "Next": "Store Analytics"
+        },
+        "Store Analytics": {
+            "Type": "Task",
+            "Resource": "${DDBPutItem}",
+            "Parameters": {
+                "TableName": "${DDBTable}",
+                "Item": {
+                    "Id": {
+                        "S.$": "$$.Execution.Id"
+                    },
+                    "Platform": {
+                        "S": "Stack Overflow"
+                    },
+                    "Timestamp": {
+                        "S.$": "$$.State.EnteredTime"
+                    }
+                }
+            },
+            "End": true
+        }
+    }
+}
+
+================
+File: statemachine/twitch.asl.json/twitch.asl.json
+================
+{
+    "Comment": "A Hello World example demonstrating various state types of the Amazon States Language",
+    "StartAt": "Pass",
+    "States": {
+        "Pass": {
+            "Comment": "A Pass state passes its input to its output, without performing work. Pass states are useful when constructing and debugging state machines.",
+            "Type": "Pass",
+            "Next": "Store Analytics"
+        },
+        "Store Analytics": {
+            "Type": "Task",
+            "Resource": "${DDBPutItem}",
+            "Parameters": {
+                "TableName": "${DDBTable}",
+                "Item": {
+                    "Id": {
+                        "S.$": "$$.Execution.Id"
+                    },
+                    "Platform": {
+                        "S": "Twitch"
+                    },
+                    "Timestamp": {
+                        "S.$": "$$.State.EnteredTime"
+                    }
+                }
+            },
+            "End": true
+        }
+    }
+}
+
+================
+File: template.yaml/template.yaml
+================
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  step-functions
+
+  Sample SAM Template for step-functions
+
+Resources:
+  AnalyticsStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/analytics.asl.json
+      DefinitionSubstitutions:
+        SNSTopicArn: !Ref AnalyticsTopic
+        StackOverflowWorkflowArn: !Ref GatherStackOverflowMetrics
+        TwitchWorkflowArn: !Ref GatherTwitchMetrics
+      Events:
+        DailySchedule:
+          Type: Schedule # More info about Schedule Event Source: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-statemachine-schedule.html
+          Properties:
+            Description: Schedule to run the analytics state machine every day
+            Enabled: true # This schedule is disabled by default to avoid incurring charges.
+            Schedule: "rate(1 day)"
+      Role: !GetAtt AnalyticsWorkflowRole.Arn
+
+  GatherStackOverflowMetrics:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/stackoverflow.asl.json
+      DefinitionSubstitutions:
+        DDBPutItem: !Sub arn:${AWS::Partition}:states:::dynamodb:putItem
+        DDBTable: !Ref AnalyticsTable
+      Type: EXPRESS
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - DynamoDBWritePolicy:
+            TableName: !Ref AnalyticsTable
+
+  GatherTwitchMetrics:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/twitch.asl.json
+      DefinitionSubstitutions:
+        DDBPutItem: !Sub arn:${AWS::Partition}:states:::dynamodb:putItem
+        DDBTable: !Ref AnalyticsTable
+      Type: EXPRESS
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref AnalyticsTable
+
+  AnalyticsTable:
+    Type: AWS::Serverless::SimpleTable # More info about SimpleTable Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-simpletable.html
+    Properties:
+      PrimaryKey:
+        Name: Id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  AnalyticsTopic:
+    Type: AWS::SNS::Topic
+
+  ##############################################################################
+  # Parent IAM role
+  ##############################################################################
+  AnalyticsWorkflowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ParentWorkflowExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The following stanzas are required to invoke nested workflows
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Ref GatherStackOverflowMetrics
+                  - !Ref GatherTwitchMetrics
+              # The following additional stanzas are required for .sync invocations of nested workflows
+              - Effect: Allow
+                Action:
+                  - states:DescribeExecution
+                  - states:StopExecution
+                Resource:
+                  - !Ref GatherStackOverflowMetrics
+                  - !Ref GatherTwitchMetrics
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:DescribeRule
+                Resource:
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
+              # The following stanzas are required to publish messages to SNS topics
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref AnalyticsTopic
+
+Outputs:
+  AnalyticsStateMachineArn:
+    Description: "Analytics state machine ARN"
+    Value: !Ref AnalyticsStateMachine
+
+
+
+
+================================================================
+End of Codebase
+================================================================

@@ -113,7 +113,6 @@ minimalist-todo/
 │       ├── auth.js             # Authentication logic
 │       ├── api.js              # API client
 │       ├── app.js              # Main application logic
-│       └── mock-api.js         # Local development mock
 ├── infra/                       # Infrastructure as Code
 │   ├── template.json           # Main SAM template (all backend resources)
 │   ├── samconfig.toml          # SAM deployment configuration
@@ -199,8 +198,6 @@ No shared resources between environments.
 This scaffold uses a simple, secure authentication system:
 
 - **HTTP API Gateway** with built-in JWT authorizers
-- **Amazon Cognito User Pools** for user management (production)
-- **Mock authentication** for local development
 - **JSON Web Tokens (JWT)** for stateless authentication
 - **DynamoDB** stores user records with role-based access
 - **Lambda functions** handle auth operations (login, register, refresh)
@@ -211,7 +208,6 @@ This scaffold uses a simple, secure authentication system:
 - **Stateless design** - No session management complexity
 - **Role-based access** - Admin vs user permissions
 - **AWS-native** - Cognito handles user management, password policies, MFA
-- **Development-friendly** - Mock auth for local testing
 
 ---
 
@@ -406,9 +402,6 @@ Domain setup is handled entirely through SAM templates with minimal configuratio
 ```bash
 # Start local frontend server
 node scripts/local-server.js 8080 frontend
-
-# Run with mock authentication and API
-# Edit frontend/js/config.js to set useMockApi: true
 ```
 
 ### Backend Development
