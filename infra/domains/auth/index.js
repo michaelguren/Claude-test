@@ -1,11 +1,11 @@
-// domains/auth/index.js
+// infra/domains/auth/index.js
+// Main auth Lambda handler with simplified 3-endpoint routing
+const { withCors } = require("./src/utils-shared/cors");
 const {
   signupHandler,
-  verifySignupHandler,
+  verifyHandler,
   loginHandler,
 } = require("./src/controller");
-
-const { withCors } = require("./src/utils-shared/cors");
 
 const authHandler = async (event) => {
   console.log("Auth event:", JSON.stringify(event, null, 2));
@@ -16,8 +16,8 @@ const authHandler = async (event) => {
       case "POST /auth/signup":
         return await signupHandler(event);
 
-      case "POST /auth/verify-signup":
-        return await verifySignupHandler(event);
+      case "POST /auth/verify":
+        return await verifyHandler(event);
 
       case "POST /auth/login":
         return await loginHandler(event);
@@ -32,7 +32,6 @@ const authHandler = async (event) => {
     console.error("Auth handler error:", error);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: "Internal server error" }),
     };
   }

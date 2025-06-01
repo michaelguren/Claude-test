@@ -168,7 +168,7 @@
     },
     "AuthFunction": {
       "Type": "AWS::Serverless::Function",
-      "Description": "Handles authentication operations (register, login, verify)",
+      "Description": "Handles authentication operations (signup, verify, login)",
       "Properties": {
         "CodeUri": "domains/auth/",
         "Handler": "index.handler",
@@ -187,10 +187,10 @@
               "ApiId": { "Ref": "HttpApi" }
             }
           },
-          "VerifySignup": {
+          "Verify": {
             "Type": "HttpApi",
             "Properties": {
-              "Path": "/auth/verify-signup",
+              "Path": "/auth/verify",
               "Method": "POST",
               "ApiId": { "Ref": "HttpApi" }
             }
@@ -224,7 +224,12 @@
                   "dynamodb:DeleteItem",
                   "dynamodb:Query"
                 ],
-                "Resource": { "Fn::GetAtt": ["MainTable", "Arn"] }
+                "Resource": [
+                  { "Fn::GetAtt": ["MainTable", "Arn"] },
+                  {
+                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainTable}/index/GSI1"
+                  }
+                ]
               },
               {
                 "Effect": "Allow",
@@ -237,18 +242,6 @@
                 "Resource": {
                   "Fn::Sub": "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/minimalist-todo/jwt-secret"
                 }
-              },
-              {
-                "Effect": "Allow",
-                "Action": ["dynamodb:Query"],
-                "Resource": [
-                  {
-                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainTable}"
-                  },
-                  {
-                    "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${MainTable}/index/GSI1"
-                  }
-                ]
               }
             ]
           }
